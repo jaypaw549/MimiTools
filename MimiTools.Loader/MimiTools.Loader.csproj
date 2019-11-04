@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>MimiTools.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Emit.ILGeneration" Version="4.3.0" />
+    <PackageReference Include="System.Reflection.Metadata" Version="1.7.0-preview8.19405.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Reflection.Emit">
+      <HintPath>..\..\..\..\..\..\..\Program Files\dotnet\sdk\NuGetFallbackFolder\system.reflection.emit\4.3.0\ref\netstandard1.1\System.Reflection.Emit.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

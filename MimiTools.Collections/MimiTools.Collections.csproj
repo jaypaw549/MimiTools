@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>MimiTools.snk</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="BinarySearchTree.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="BinarySearchTree.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MimiTools.Extensions\MimiTools.Extensions.csproj" />
+  </ItemGroup>
+
+</Project>
