@@ -9,7 +9,6 @@ namespace MimiTools.IL
         {
             fixed (byte* ptr = raw_il)
                 return ReadIL(ptr, raw_il.LongLength);
-
         }
 
         public static unsafe Op[] ReadIL(byte* il_ptr, long count)
@@ -28,6 +27,19 @@ namespace MimiTools.IL
             }
 
             return operations.ToArray();
+        }
+
+        public static unsafe Op ReadOp(byte[] raw_il, int offset)
+        {
+            fixed (byte* b = raw_il)
+                return ReadOp(b + offset);
+        }
+
+        public static unsafe Op ReadOp(byte* il_ptr)
+        {
+            OpCode op = ILHelper.ReadOpCode(il_ptr);
+            il_ptr += op.Size;
+            return new Op(op, ReadOperand(il_ptr, op.OperandType));
         }
 
         private static unsafe byte[] ReadOperand(byte* ptr, OperandType type)

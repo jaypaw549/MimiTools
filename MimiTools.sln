@@ -30,7 +30,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Expressions", "Mi
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Messenger", "MimiTools.Messenger\MimiTools.Messenger.csproj", "{3738A5A8-DB99-48D4-AB89-E264EB9DD7B6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimiTools.Arguments", "MimiTools.Arguments\MimiTools.Arguments.csproj", "{04F7F289-A280-4911-A7BF-BFB5F4AB49BF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Arguments", "MimiTools.Arguments\MimiTools.Arguments.csproj", "{04F7F289-A280-4911-A7BF-BFB5F4AB49BF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Memory", "MimiTools.Memory\MimiTools.Memory.csproj", "{84AE6D6C-6F21-4EA2-982C-8327B880360B}"
 EndProject
@@ -38,7 +38,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.IL", "MimiTools.I
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.CodeBuilder", "MimiTools.CodeBuilder\MimiTools.CodeBuilder.csproj", "{D45AB83A-7BB2-4E2F-A38C-73C10152C7BC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimiTools.Loader", "MimiTools.Loader\MimiTools.Loader.csproj", "{9035FCFE-4BB9-4BF0-9735-7F5BB3A0FA46}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Loader", "MimiTools.Loader\MimiTools.Loader.csproj", "{9035FCFE-4BB9-4BF0-9735-7F5BB3A0FA46}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MimiTools.Implementer", "MimiTools.Implementer\MimiTools.Implementer.csproj", "{24EE7B9A-69BD-4110-969D-7C60B0D19C48}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -114,6 +116,10 @@ Global
 		{9035FCFE-4BB9-4BF0-9735-7F5BB3A0FA46}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9035FCFE-4BB9-4BF0-9735-7F5BB3A0FA46}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9035FCFE-4BB9-4BF0-9735-7F5BB3A0FA46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24EE7B9A-69BD-4110-969D-7C60B0D19C48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24EE7B9A-69BD-4110-969D-7C60B0D19C48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24EE7B9A-69BD-4110-969D-7C60B0D19C48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24EE7B9A-69BD-4110-969D-7C60B0D19C48}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

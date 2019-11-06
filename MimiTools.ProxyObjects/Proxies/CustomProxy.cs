@@ -1,152 +1,106 @@
-﻿using MimiTools.ProxyObjects.Proxies.ProxyHandlers;
+﻿using MimiTools.ProxyObjects.Proxies.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
+using System.Linq;
 
 namespace MimiTools.ProxyObjects.Proxies
 {
-    public class CustomProxy<T> : IProxyHandler where T : class
+    public delegate object CustomProxyDelegate(CustomProxy sender, object[] args);
+
+    public class CustomProxy : IProxyContract
     {
-        private static readonly Dictionary<MethodInfo, Func<CustomProxy<T>, ProxyObject, object[], object>> _special_methods
-            = new Dictionary<MethodInfo, Func<CustomProxy<T>, ProxyObject, object[], object>>();
-
-        private static readonly WeakLazy<DynamicProxyHandler> _handler_lazy
-            = new WeakLazy<DynamicProxyHandler>(() => new DynamicProxyHandler());
-
-        static CustomProxy()
-        {
-            if (!typeof(T).IsInterface)
-                throw new ArgumentOutOfRangeException(nameof(T));
-
-            foreach (PropertyInfo pi in typeof(T).GetProperties())
-            {
-                if (pi.CanRead)
-                    _special_methods.Add(pi.GetMethod, (proxy, obj, args) => proxy.PropertyGet(obj, pi, args));
-
-                if (pi.CanWrite)
-                    _special_methods.Add(pi.GetMethod, (proxy, obj, args) => proxy.PropertySet(obj, pi, args));
-            }
-
-            foreach (EventInfo ei in typeof(T).GetEvents())
-            {
-                _special_methods.Add(ei.AddMethod, (proxy, obj, args) => proxy.EventAdd(obj, ei, args[0] as Delegate));
-                _special_methods.Add(ei.RemoveMethod, (proxy, obj, args) => proxy.EventRemove(obj, ei, args[0] as Delegate));
-            }
-        }
-
-        public CustomProxy(T value)
-        {
-            _handler = _handler_lazy.GetValue();
-            Target = value ?? throw new ArgumentNullException(nameof(value));
-            _proxy = new WeakLazy<T>(CreateProxy);
-        }
-
         public CustomProxy()
         {
-            Target = null;
-            _handler = null;
-            _proxy = new WeakLazy<T>(CreateNullProxy);
+            _helper = null;
+            _factory = ProxyFactory.OverrideVirtual;
+            _obj = null;
         }
 
-        private readonly DynamicProxyHandler _handler;
-        private readonly WeakLazy<T> _proxy;
-
-        public T Proxy { get => _proxy.GetValue(); }
-        public T Target { get; }
-
-        public event Action<T, EventInfo, Delegate> DoEventListenerAdd;
-        public event Action<T, EventInfo, Delegate> AfterEventListenerAdd;
-        public event Action<T, EventInfo, Delegate> OnEventListenerAdd;
-
-        public event Action<T, EventInfo, Delegate> DoEventListenerRemove;
-        public event Action<T, EventInfo, Delegate> AfterEventListenerRemove;
-        public event Action<T, EventInfo, Delegate> OnEventListenerRemove;
-
-        public event Func<T, MethodInfo, object[], object> DoMethodInvoke;
-        public event Action<T, MethodInfo, object[], object> AfterMethodInvoke;
-        public event Action<T, MethodInfo, object[]> OnMethodInvoke;
-
-        public event Func<T, PropertyInfo, object[], object> DoPropertyGet;
-        public event Action<T, PropertyInfo, object[], object> AfterPropertyGet;
-        public event Action<T, PropertyInfo, object[]> OnPropertyGet;
-
-        public event Action<T, PropertyInfo, object[]> DoPropertySet;
-        public event Action<T, PropertyInfo, object[]> AfterPropertySet;
-        public event Action<T, PropertyInfo, object[]> OnPropertySet;
-
-        public bool CheckProxy(long id, Type contract_type)
-            => _handler?.CheckProxy(id, contract_type) ?? true;
-
-        private T CreateProxy()
-            => ProxyGenerator<T>.CreateProxy(_handler.BindObject(Target), this);
-
-        private T CreateNullProxy()
-            => ProxyGenerator<T>.CreateProxy(0, this);
-
-        private object EventAdd(ProxyObject obj, EventInfo @event, Delegate arg)
+        public CustomProxy(object obj)
         {
-            OnEventListenerAdd?.Invoke(Target, @event, arg);
-            if (DoEventListenerAdd != null)
-                DoEventListenerAdd(Target, @event, arg);
-            else
-                Invoke(obj, @event.AddMethod, arg);
-            AfterEventListenerAdd?.Invoke(Target, @event, arg);
-            return null;
+            _factory = ProxyFactory.OverrideVirtual;
+            _obj = obj ?? throw new ArgumentNullException(nameof(obj));
+            _helper = new DynamicHelper();
         }
 
-        private object EventRemove(ProxyObject obj, EventInfo @event, Delegate arg)
+        public CustomProxy(ProxyFactory factory)
         {
-            OnEventListenerRemove?.Invoke(Target, @event, arg);
-            if (DoEventListenerRemove != null)
-                DoEventListenerRemove(Target, @event, arg);
-            else
-                Invoke(obj, @event.RemoveMethod, arg);
-            AfterEventListenerRemove?.Invoke(Target, @event, arg);
-            return null;
+            _helper = null;
+            _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+            _obj = null;
         }
 
-        private object Invoke(ProxyObject obj, MethodInfo method, params object[] args)
-            => _handler?.Invoke(obj, method, args);
-
-        object IProxyHandler.Invoke(ProxyObject obj, MethodInfo method, object[] args)
+        public CustomProxy(object obj, ProxyFactory factory)
         {
-            object ret;
-            if (_special_methods.TryGetValue(method, out var handler))
-                return handler.Invoke(this, obj, args);
-
-            OnMethodInvoke?.Invoke(Target, method, args);
-            if (DoMethodInvoke != null)
-                ret = DoMethodInvoke(Target, method, args);
-            else
-                ret = Invoke(obj, method, args);
-            AfterMethodInvoke?.Invoke(Target, method, args, ret);
-            return ret;
+            _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+            _obj = obj ?? throw new ArgumentNullException(nameof(obj));
+            _helper = new DynamicHelper();
         }
 
-        private object PropertyGet(ProxyObject obj, PropertyInfo property, object[] args)
+        private readonly DynamicHelper _helper;
+        private readonly ProxyFactory _factory;
+        private readonly Dictionary<MethodInfo, CustomProxyDelegate> _implementations = new Dictionary<MethodInfo, CustomProxyDelegate>();
+        private readonly object _obj;
+
+        public event Func<MethodInfo, CustomProxyDelegate> MethodResolve;
+
+        public T AsProxy<T>() where T : class
+            => _factory.FromContract<T>(this);
+
+        public object AsProxy<T>(Type t)
+            => _factory.FromContract(t, this);
+
+        public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
         {
-            object ret;
-            OnPropertyGet?.Invoke(Target, property, args);
-            if (DoPropertyGet != null)
-                ret = DoPropertyGet(Target, property, args);
-            else
-                ret = Invoke(obj, property.GetMethod, args);
-            AfterPropertyGet?.Invoke(Target, property, args, ret);
-            return ret;
+            CustomProxyDelegate func;
+            bool exec;
+            lock (_implementations)
+                exec = _implementations.TryGetValue(method, out func);
+
+            if (exec)
+                return func(this, args);
+
+            if (_obj != null)
+                return _helper.GetMethod(method).Invoke(_obj, args);
+
+            var resolvers = MethodResolve?.GetInvocationList();
+
+            if (resolvers != null)
+                foreach (var r in resolvers.Cast<Func<MethodInfo, CustomProxyDelegate>>())
+                {
+                    var cpd = r(method);
+                    if (cpd != null)
+                    {
+                        lock (_implementations)
+                            _implementations[method] = cpd;
+                        return cpd(null, args);
+                    }
+                }
+
+            throw new NotImplementedException();
         }
 
-        private object PropertySet(ProxyObject obj, PropertyInfo property, object[] args)
+        public bool RemoveOverride(MethodInfo method)
         {
-            OnPropertySet?.Invoke(Target, property, args);
-            if (DoPropertySet != null)
-                DoPropertySet(Target, property, args);
-            else
-                Invoke(obj, property.SetMethod, args);
-            AfterPropertySet?.Invoke(Target, property, args);
-            return null;
+            lock (_implementations)
+                return _implementations.Remove(method);
         }
 
-        public void Release(long id, Type contractType)
-            => _handler?.Release(id, contractType);
+        public void SetOverride(MethodInfo method, CustomProxyDelegate d)
+        {
+            lock (_implementations)
+                _implementations[method] = d;
+        }
+
+        void IProxyContract.Release() { }
+
+        public bool Verify(Type t)
+        {
+            if (_obj == null)
+                return true;
+            return t?.IsInstanceOfType(_obj) ?? false;
+        }
     }
 }
