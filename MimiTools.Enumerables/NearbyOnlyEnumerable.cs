@@ -30,7 +30,7 @@ namespace MimiTools.Enumerables
                 _source = source;
                 _filter = filter;
                 _array = new T[1 + (max_distance * 2)];
-                _ptr = 0;
+                _ptr = -1;
                 _pass_count = 0;
                 _passes = new bool[_array.Length];
                 _remaining = max_distance + 1;
