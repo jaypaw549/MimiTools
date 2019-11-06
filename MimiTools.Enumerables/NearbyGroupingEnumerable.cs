@@ -30,7 +30,7 @@ namespace MimiTools.Enumerables
                 _source = source;
                 _filter = filter;
                 _array = new T[1 + (max_distance * 2)];
-                _ptr = 0;
+                _ptr = -1;
                 _pass_count = 0;
                 _passes = new bool[_array.Length];
                 _remaining = max_distance + 1;
@@ -53,19 +53,17 @@ namespace MimiTools.Enumerables
 
             object IEnumerator.Current => Current;
 
-
             private int GetNewest()
                 => (_ptr + (_array.Length / 2)) % _array.Length;
 
             public bool MoveNext()
             {
-                List<T> group = new List<T>();
-
                 do
                     if (!Traverse())
-                        break;
+                        return false;
                 while (_pass_count == 0);
 
+                List<T> group = new List<T>();
                 while (_pass_count > 0)
                 {
                     group.Add(_array[_ptr]);
@@ -73,9 +71,9 @@ namespace MimiTools.Enumerables
                         break;
                 }
 
-                Current = group.Count > 0 ? group : null;
+                Current = group.AsReadOnly();
 
-                return Current != null;
+                return true;
             }
 
             public void Reset()
@@ -85,7 +83,7 @@ namespace MimiTools.Enumerables
             {
                 _ptr = (_ptr + 1) % _array.Length;
 
-                //The newest is also the oldest until we set it
+                //The newest is also the oldest until we set a new value to it
                 int newest = GetNewest();
                 if (_passes[newest])
                     _pass_count--;
