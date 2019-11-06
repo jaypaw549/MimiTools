@@ -61,10 +61,10 @@ namespace MimiTools.Enumerables
             {
                 do
                     if (!Traverse())
-                        break;
+                        return false;
                 while (_pass_count == 0);
 
-                return _pass_count > 0;
+                return true;
             }
 
             public void Reset()
@@ -74,7 +74,7 @@ namespace MimiTools.Enumerables
             {
                 _ptr = (_ptr + 1) % _array.Length;
 
-                //The newest is also the oldest until we set it
+                //The newest is also the oldest until we set a new value to it
                 int newest = GetNewest();
                 if (_passes[newest])
                     _pass_count--;
