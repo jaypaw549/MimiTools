@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace MimiTools.Collections
+namespace MimiTools.Arguments
 {
     public class StringArguments : IEnumerable<string>, IReadOnlyList<string>
     {
@@ -53,7 +53,7 @@ namespace MimiTools.Collections
         }
 
         public ArgumentsEnumerator GetEnumerator()
-            => new ArgumentsEnumerator(Arguments);
+            => new ArgumentsEnumerator(this);
 
         IEnumerator<string> IEnumerable<string>.GetEnumerator()
             => GetEnumerator();
@@ -80,32 +80,32 @@ namespace MimiTools.Collections
 
         public class ArgumentsEnumerator : IEnumerator<string>
         {
-            internal ArgumentsEnumerator(string args)
-                => Remaining = args;
+            internal ArgumentsEnumerator(StringArguments args)
+            {
+                Arguments = args;
+                Disposed = false;
+                Index = -1;
+            }
 
-            public string Current { get; private set; }
+            public string Current { get => Disposed ? throw new InvalidOperationException("Disposed!") : Arguments[Index]; }
 
-            private bool Disposed = false;
-
-            private string Remaining;
+            private readonly StringArguments Arguments;
+            private bool Disposed;
+            private int Index;
 
             object IEnumerator.Current => Current;
 
             public void Dispose()
             {
-                Current = null;
                 Disposed = true;
-                Remaining = null;
             }
 
             public string GetRemaining(bool consume = false)
             {
-                string ret = Remaining.Trim();
+                string ret = Arguments.GetAsRemaining(Index);
                 if (consume)
-                {
-                    Current = string.Empty;
-                    Remaining = string.Empty;
-                }
+                    Index = Arguments.Count;
+                
                 return ret;
             }
 
@@ -114,17 +114,7 @@ namespace MimiTools.Collections
                 if (Disposed)
                     throw new InvalidOperationException("Disposed.");
 
-                Match match = ArgumentsParser.Match(Remaining);
-                Current = match.Value;
-
-                if (match.Success)
-                {
-                    Remaining = Remaining.Remove(0, match.Index + match.Length);
-                    return true;
-                }
-
-                Remaining = string.Empty;
-                return false;
+                return ++Index < Arguments.Count;
             }
 
             public void Reset()
