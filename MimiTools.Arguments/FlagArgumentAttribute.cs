@@ -14,7 +14,7 @@ namespace MimiTools.Arguments
     /// [FlagArgument("-f")]
     /// public void Force()
     /// {
-    ///     //Do stuff to toggle the force flag as on
+    ///     //Do stuff to toggle the force flag as on\n
     /// }
     /// </code>    
     /// "-p 22" in the input will assign 22 to this property
@@ -23,7 +23,7 @@ namespace MimiTools.Arguments
     /// public int Port { get; set; }
     /// </code>
     /// </summary>
-    [AttributeUsage(ArgumentsManager._usage, AllowMultiple = true)]
+    [AttributeUsage(ArgumentsParser._usage, AllowMultiple = true)]
     public class FlagArgumentAttribute : Attribute
     {
         public string Flag { get; }

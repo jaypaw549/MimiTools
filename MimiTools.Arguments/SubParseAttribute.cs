@@ -4,7 +4,7 @@ using System.Text;
 
 namespace MimiTools.Arguments
 {
-    [AttributeUsage(AttributeTargets.Parameter)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property, AllowMultiple = false)]
     public class SubParseAttribute : Attribute
     {
     }

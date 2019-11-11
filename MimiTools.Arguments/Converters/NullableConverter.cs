@@ -6,9 +6,9 @@ namespace MimiTools.Arguments.Converters
 {
     class NullableConverter : IArgumentConverter
     {
-        private readonly ArgumentsManager _manager;
+        private readonly ArgumentsParser _manager;
 
-        internal NullableConverter(ArgumentsManager manager)
+        internal NullableConverter(ArgumentsParser manager)
             => _manager = manager;
 
         public ConversionCompability GetCompatibilty(Type t)

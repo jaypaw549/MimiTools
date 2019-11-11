@@ -7,7 +7,7 @@ namespace MimiTools.Arguments
     /// <summary>
     /// Specifies an argument which is interpreted in a specific order
     /// </summary>
-    [AttributeUsage(ArgumentsManager._usage, AllowMultiple = false)]
+    [AttributeUsage(ArgumentsParser._usage, AllowMultiple = false)]
     public class PositionArgumentAttribute : Attribute
     {
         /// <summary>
