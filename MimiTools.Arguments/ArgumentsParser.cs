@@ -477,6 +477,8 @@ namespace MimiTools.Arguments
                 if (p_data[i].SubParse)
                 {
                     parameters[i] = Parse(parser.GetParser(p_data[i].Type), data, true);
+                    if (!p_data[i].Type.IsInstanceOfType(parameters[i]))
+                        throw new InvalidCastException("Could not cast sub-parsed value to the target's parameter type! Please check the methods marked with ParseAndReturnResult attributes!");
                     continue;
                 }
 
@@ -485,6 +487,9 @@ namespace MimiTools.Arguments
                     data.Reset();
                     return reset_pos = false;
                 }
+
+                if (!p_data[i].Type.IsInstanceOfType(obj))
+                    throw new InvalidCastException("Converted value wasn't of the requested type! Please check that your converters are returning the type requested!");
 
                 parameters[i] = obj;
             }
