@@ -21,10 +21,11 @@ namespace MimiTools.Arguments
 
         public ArgumentsParser(Type t)
         {
+            _case_sensitive = true;
             _ctor = CreateConstructorDelegate(t, true);
             _converter_list = new HashSet<IArgumentConverter>();
             _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
-            _flag_args = GetFlagData(t);
+            _flag_args = GetFlagData(t, true);
             _parsers = new Dictionary<Type, ArgumentsParser>()
             {
                 { t, this }
@@ -34,10 +35,11 @@ namespace MimiTools.Arguments
 
         public ArgumentsParser(Type t, Func<object> factory)
         {
+            _case_sensitive = true;
             _ctor = factory;
             _converter_list = new HashSet<IArgumentConverter>();
             _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
-            _flag_args = GetFlagData(t);
+            _flag_args = GetFlagData(t, true);
             _parsers = new Dictionary<Type, ArgumentsParser>()
             {
                 { t, this }
@@ -47,6 +49,7 @@ namespace MimiTools.Arguments
 
         public ArgumentsParser(Type t, params IArgumentConverter[] converters)
         {
+            _case_sensitive = true;
             _ctor = CreateConstructorDelegate(t, true);
             _converter_list = new HashSet<IArgumentConverter>();
 
@@ -54,7 +57,7 @@ namespace MimiTools.Arguments
                 _converter_list.Add(converters[i]);
 
             _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
-            _flag_args = GetFlagData(t);
+            _flag_args = GetFlagData(t, true);
             _parsers = new Dictionary<Type, ArgumentsParser>()
             {
                 { t, this }
@@ -64,6 +67,7 @@ namespace MimiTools.Arguments
 
         public ArgumentsParser(Type t, Func<object> factory, params IArgumentConverter[] converters)
         {
+            _case_sensitive = true;
             _ctor = factory;
             _converter_list = new HashSet<IArgumentConverter>();
 
@@ -71,7 +75,71 @@ namespace MimiTools.Arguments
                 _converter_list.Add(converters[i]);
 
             _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
-            _flag_args = GetFlagData(t);
+            _flag_args = GetFlagData(t, true);
+            _parsers = new Dictionary<Type, ArgumentsParser>()
+            {
+                { t, this }
+            };
+            _pos_args = GetPositionData(t);
+        }
+
+        public ArgumentsParser(Type t, bool case_sensitive)
+        {
+            _case_sensitive = case_sensitive;
+            _ctor = CreateConstructorDelegate(t, true);
+            _converter_list = new HashSet<IArgumentConverter>();
+            _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
+            _flag_args = GetFlagData(t, case_sensitive);
+            _parsers = new Dictionary<Type, ArgumentsParser>()
+            {
+                { t, this }
+            };
+            _pos_args = GetPositionData(t);
+        }
+
+        public ArgumentsParser(Type t, bool case_sensitive, Func<object> factory)
+        {
+            _case_sensitive = case_sensitive;
+            _ctor = factory;
+            _converter_list = new HashSet<IArgumentConverter>();
+            _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
+            _flag_args = GetFlagData(t, case_sensitive);
+            _parsers = new Dictionary<Type, ArgumentsParser>()
+            {
+                { t, this }
+            };
+            _pos_args = GetPositionData(t);
+        }
+
+        public ArgumentsParser(Type t, bool case_sensitive, params IArgumentConverter[] converters)
+        {
+            _case_sensitive = case_sensitive;
+            _ctor = CreateConstructorDelegate(t, true);
+            _converter_list = new HashSet<IArgumentConverter>();
+
+            for (int i = 0; i < converters.Length; i++)
+                _converter_list.Add(converters[i]);
+
+            _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
+            _flag_args = GetFlagData(t, case_sensitive);
+            _parsers = new Dictionary<Type, ArgumentsParser>()
+            {
+                { t, this }
+            };
+            _pos_args = GetPositionData(t);
+        }
+
+        public ArgumentsParser(Type t, bool case_sensitive, Func<object> factory, params IArgumentConverter[] converters)
+        {
+            _case_sensitive = case_sensitive;
+            _ctor = factory;
+            _converter_list = new HashSet<IArgumentConverter>();
+
+            for (int i = 0; i < converters.Length; i++)
+                _converter_list.Add(converters[i]);
+
+            _converters = new Dictionary<Type, HashSet<IArgumentConverter>>();
+            _flag_args = GetFlagData(t, case_sensitive);
             _parsers = new Dictionary<Type, ArgumentsParser>()
             {
                 { t, this }
@@ -81,10 +149,11 @@ namespace MimiTools.Arguments
 
         private ArgumentsParser(ArgumentsParser origin, Type t)
         {
+            _case_sensitive = origin._case_sensitive;
             _ctor = CreateConstructorDelegate(t, false);
             _converter_list = origin._converter_list;
             _converters = origin._converters;
-            _flag_args = GetFlagData(t);
+            _flag_args = GetFlagData(t, _case_sensitive);
             _parsers = origin._parsers;
             _parsers.Add(t, this);
             _pos_args = GetPositionData(t);
@@ -94,6 +163,7 @@ namespace MimiTools.Arguments
         private const BindingFlags _flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
         private delegate object SetFunc(object instance, object[] args);
 
+        private readonly bool _case_sensitive;
         private readonly Func<object> _ctor;
         private readonly HashSet<IArgumentConverter> _converter_list;
         private readonly Dictionary<Type, HashSet<IArgumentConverter>> _converters;
@@ -160,6 +230,14 @@ namespace MimiTools.Arguments
             return false;
         }
 
+        public static void AddBasicParsers(ArgumentsParser arg_parser)
+        {
+
+            arg_parser.AddConverter(BasicConverter.Instance);
+            arg_parser.AddConverter(EnumConverter.Instance);
+            arg_parser.AddConverter(new NullableConverter(arg_parser));
+        }
+
         private static int ComparerMethod((TargetData, PositionArgumentAttribute) a, (TargetData, PositionArgumentAttribute) b)
         {
             if (a.Item2.Position != b.Item2.Position)
@@ -172,9 +250,8 @@ namespace MimiTools.Arguments
 
         public static ArgumentsParser Create(Type t)
         {
-            ArgumentsParser arg_mgr = new ArgumentsParser(t,
-                BasicConverter.Instance, EnumConverter.Instance);
-            arg_mgr.AddConverter(new NullableConverter(arg_mgr));
+            ArgumentsParser arg_mgr = new ArgumentsParser(t);
+            AddBasicParsers(arg_mgr);
             return arg_mgr;
         }
 
@@ -217,7 +294,7 @@ namespace MimiTools.Arguments
             return (Func<object>)method.CreateDelegate(typeof(Func<object>));
         }
 
-        private static Dictionary<string, TargetData[]> GetFlagData(Type t)
+        private static Dictionary<string, TargetData[]> GetFlagData(Type t, bool case_sensitive)
         {
             var dict = new Dictionary<string, List<(TargetData, FlagArgumentAttribute)>>();
             foreach (MemberInfo mi in t.GetMembers(_flags))
@@ -238,7 +315,9 @@ namespace MimiTools.Arguments
                 }
             }
 
-            Dictionary<string, TargetData[]> flag_args = new Dictionary<string, TargetData[]>();
+            Dictionary<string, TargetData[]> flag_args = new Dictionary<string, TargetData[]>(
+                case_sensitive ? StringComparer.CurrentCulture : StringComparer.CurrentCultureIgnoreCase);
+
             foreach(var kvp in dict)
             {
                 kvp.Value.Sort(_flag_comparer);
