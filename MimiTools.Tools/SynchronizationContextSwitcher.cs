@@ -3,9 +3,9 @@ using System.Threading;
 
 namespace MimiTools.Tools
 {
-    public class SynchronizationContextSwitcher : IDisposable
+    public readonly struct SynchronizationContextSwitcher : IDisposable
     {
-        public static SynchronizationContextSwitcher NoContext { get => new SynchronizationContextSwitcher(null); }
+        public static SynchronizationContextSwitcher NoContext { get => new SynchronizationContextSwitcher(null, true); }
 
         private readonly SynchronizationContext current, previous;
         private readonly bool force_switch;
