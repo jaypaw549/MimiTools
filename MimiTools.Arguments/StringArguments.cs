@@ -102,6 +102,9 @@ namespace MimiTools.Arguments
 
             public string GetRemaining(bool consume = false)
             {
+                if (Index >= Arguments.Count)
+                    return string.Empty;
+
                 string ret = Arguments.GetAsRemaining(Index);
                 if (consume)
                     Index = Arguments.Count;
