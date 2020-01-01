@@ -45,12 +45,11 @@ namespace MimiTools.Arguments
             if (index < 0)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            if (index == Collection.Count)
-                return string.Empty;
+            if (index == 0)
+                return Arguments;
 
-            Match m = Collection[index];
-            Match l = Collection[Collection.Count - 1];
-            return Arguments.Substring(m.Index, l.Index + l.Length - m.Index);
+            Match m = Collection[index - 1];
+            return Arguments.Substring(m.Index + m.Length);
         }
 
         public ArgumentsEnumerator GetEnumerator()
@@ -103,9 +102,6 @@ namespace MimiTools.Arguments
 
             public string GetRemaining(bool consume = false)
             {
-                if (Index >= Arguments.Count)
-                    return string.Empty;
-
                 string ret = Arguments.GetAsRemaining(Index);
                 if (consume)
                     Index = Arguments.Count;
