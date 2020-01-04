@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MimiTools.Collections.Weak;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -6,19 +7,9 @@ using System.Threading;
 
 namespace MimiTools.ProxyObjects.Proxies.ProxyHandlers
 {
-    internal class DynamicProxyHandler : IProxyHandler
+    internal class DynamicProxyHandler
     {
         private readonly Dictionary<MethodInfo, Func<object, object[], object>> _methods = new Dictionary<MethodInfo, Func<object, object[], object>>();
-
-        private readonly Dictionary<long, object> _bindings = new Dictionary<long, object>();
-        private long _current = -1;
-
-        public long BindObject(object obj)
-        {
-            long id = Interlocked.Increment(ref _current);
-            _bindings[id] = obj;
-            return id;
-        }
 
         private void BuildMethod(MethodInfo method, out Func<object, object[], object> invoke)
         {
@@ -117,7 +108,7 @@ namespace MimiTools.ProxyObjects.Proxies.ProxyHandlers
             return;
         }
 
-        public object Invoke(ProxyObject obj, MethodInfo method, object[] args)
+        public Func<object, object[], object> GetMethod(MethodInfo method)
         {
             Func<object, object[], object> invoke;
             lock (_methods)
@@ -126,17 +117,7 @@ namespace MimiTools.ProxyObjects.Proxies.ProxyHandlers
                     BuildMethod(method, out invoke);
             }
 
-            return invoke(_bindings[obj.Id], args);
+            return invoke;
         }
-
-        public bool CheckProxy(long id, Type contract_type)
-        {
-            if (_bindings.TryGetValue(id, out object value))
-                return contract_type.IsInstanceOfType(value);
-            return false;
-        }
-
-        public void Release(long id, Type contractType)
-            => _bindings.Remove(id);
     }
 }
