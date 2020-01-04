@@ -12,11 +12,15 @@ namespace MimiTools.ProxyObjects
         internal const string CreateNew = "CreateNew";
         internal const string FromContract = "FromContract";
 
+        private const string ContractParameter = "contract";
+        private const string HandlerParameter = "handler";
+        private const string IDParameter = "id";
+
         private const BindingFlags _flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
         internal static TypeInfo CreateImplementation(Type type, bool virt)
         {
-            if (!type.IsPublic || !type.IsNestedPublic)
+            if (!type.IsPublic || (type.IsNested && !type.IsNestedPublic))
                 throw new ArgumentException("Generated assemblies cannot access the target class!");
 
             AssemblyBuilder asmBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName($"ProxyObject.{type.Name}.dll"), AssemblyBuilderAccess.RunAndCollect);
@@ -342,14 +346,35 @@ namespace MimiTools.ProxyObjects
                 generator.Emit(OpCodes.Call, constructor);
             }
 
+            Label if_null = generator.DefineLabel();
+            Label if_no_contract = generator.DefineLabel();
+
+            generator.Emit(OpCodes.Ldarg_1);
+            generator.Emit(OpCodes.Brfalse_S, if_null);
+
             generator.Emit(OpCodes.Ldarg_0);
             generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Ldarg_2);
             generator.Emit(OpCodes.Ldtoken, type);
             generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
             generator.Emit(OpCodes.Callvirt, ProxyHelper.CreateContractMethod);
+
+            generator.Emit(OpCodes.Dup);
+            generator.Emit(OpCodes.Brfalse_S, if_no_contract);
+
             generator.Emit(OpCodes.Stfld, contractField);
             generator.Emit(OpCodes.Ret);
+
+            generator.MarkLabel(if_no_contract);
+            generator.Emit(OpCodes.Pop);
+            generator.Emit(OpCodes.Ldstr, "Handler did not provide a contract!");
+            generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
+            generator.Emit(OpCodes.Throw);
+
+            generator.MarkLabel(if_null);
+            generator.Emit(OpCodes.Ldstr, HandlerParameter);
+            generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
+            generator.Emit(OpCodes.Throw);
 
             return constructorBuilder;
         }
@@ -358,6 +383,7 @@ namespace MimiTools.ProxyObjects
         {
             ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.HasThis, new Type[] { typeof(IProxyContract) });
             ILGenerator generator = constructorBuilder.GetILGenerator();
+            constructorBuilder.DefineParameter(0, ParameterAttributes.None, ContractParameter);
 
             if (type.IsClass)
             {
@@ -373,10 +399,31 @@ namespace MimiTools.ProxyObjects
                 generator.Emit(OpCodes.Call, constructor);
             }
 
+            Label if_null = generator.DefineLabel();
+            Label if_not_verified = generator.DefineLabel();
+
+            generator.Emit(OpCodes.Ldarg_1);
+            generator.Emit(OpCodes.Brfalse_S, if_null);
+
+            generator.Emit(OpCodes.Ldtoken, type);
+            generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
+            generator.Emit(OpCodes.Callvirt, ProxyHelper.VerifyMethod);
+            generator.Emit(OpCodes.Brfalse_S, if_not_verified);
+
             generator.Emit(OpCodes.Ldarg_0);
             generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Stfld, contractField);
             generator.Emit(OpCodes.Ret);
+
+            generator.MarkLabel(if_not_verified);
+            generator.Emit(OpCodes.Ldstr, $"This proxy type is not valid for this contract!");
+            generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
+            generator.Emit(OpCodes.Throw);
+
+            generator.MarkLabel(if_null);
+            generator.Emit(OpCodes.Ldstr, ContractParameter);
+            generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
+            generator.Emit(OpCodes.Throw);
 
             return constructorBuilder;
         }

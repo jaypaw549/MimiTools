@@ -17,23 +17,17 @@ namespace MimiTools.ProxyObjects
         private readonly Dictionary<Type, FactoryContainer> _containers = new Dictionary<Type, FactoryContainer>();
         private readonly bool _override_virtual;
 
-        /// <summary>
-        /// Create a transparent proxy using the specified id, permissions, and handler.
-        /// </summary>
-        /// <param name="id">The id to make the proxy with</param>
-        /// <param name="handler">the handler that will manage the proxy</param>
-        /// <returns>An instance of the implementation, casted to its implementing interface</returns>
-        public object CreateNew(Type t, IProxyHandler handler, long id)
-            => GetContainer(t).CreateNew(handler, id);
-
-        public T CreateNew<T>(IProxyHandler handler, long id) where T : class
-            => (T)GetContainer(typeof(T)).CreateNew(handler, id);
-
         public object FromContract(Type t, IProxyContract contract)
             => GetContainer(t).FromContract(contract);
 
         public T FromContract<T>(IProxyContract contract) where T : class
             => (T)GetContainer(typeof(T)).FromContract(contract);
+
+        public object FromHandler(Type t, IProxyHandler handler, long id)
+            => GetContainer(t).CreateNew(handler, id);
+
+        public T FromHandler<T>(IProxyHandler handler, long id) where T : class
+            => (T)GetContainer(typeof(T)).CreateNew(handler, id);
 
         private FactoryContainer GetContainer(Type t)
         {

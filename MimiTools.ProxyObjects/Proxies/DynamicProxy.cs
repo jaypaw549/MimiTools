@@ -1,4 +1,4 @@
-﻿using MimiTools.ProxyObjects.Proxies.ProxyHandlers;
+﻿using MimiTools.ProxyObjects.Proxies.Helpers;
 using System;
 using System.Reflection;
 
@@ -14,14 +14,14 @@ namespace MimiTools.ProxyObjects.Proxies
         /// <param name="perms">The permissions to pass to the proxy object</param>
         /// <returns>A proxy object representing of the interfaces on the object.</returns>
         public static T Create<T>(T obj) where T : class
-            => ProxyFactory.Default.FromContract<T>(new DynamicContract(new DynamicProxyHandler(), obj));
+            => ProxyFactory.Default.FromContract<T>(new DynamicContract(new DynamicHelper(), obj));
 
         public static IProxyContract CreateContract(object obj)
-            => new DynamicContract(new DynamicProxyHandler(), obj);
+            => new DynamicContract(new DynamicHelper(), obj);
 
         public static Func<T, IProxyContract> CreateContractFactory<T>()
         {
-            DynamicProxyHandler handler = new DynamicProxyHandler();
+            DynamicHelper handler = new DynamicHelper();
             return obj => new DynamicContract(handler, obj);
         }
 
@@ -36,16 +36,16 @@ namespace MimiTools.ProxyObjects.Proxies
         /// <returns>A function that creates transparent proxies implementing the specified type</returns>
         public static Func<T, T> CreateFactory<T>() where T : class
         {
-            DynamicProxyHandler handler = new DynamicProxyHandler();
+            DynamicHelper handler = new DynamicHelper();
             return obj => ProxyFactory.Default.FromContract<T>(new DynamicContract(handler, obj));
         }
 
         private class DynamicContract : IProxyContract
         {
-            private readonly DynamicProxyHandler handler;
+            private readonly DynamicHelper handler;
             private readonly object obj;
 
-            public DynamicContract(DynamicProxyHandler handler, object obj)
+            public DynamicContract(DynamicHelper handler, object obj)
             {
                 this.handler = handler;
                 this.obj = obj;

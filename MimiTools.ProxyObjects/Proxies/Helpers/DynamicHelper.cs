@@ -5,9 +5,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
 
-namespace MimiTools.ProxyObjects.Proxies.ProxyHandlers
+namespace MimiTools.ProxyObjects.Proxies.Helpers
 {
-    internal class DynamicProxyHandler
+    internal class DynamicHelper
     {
         private readonly Dictionary<MethodInfo, Func<object, object[], object>> _methods = new Dictionary<MethodInfo, Func<object, object[], object>>();
 
