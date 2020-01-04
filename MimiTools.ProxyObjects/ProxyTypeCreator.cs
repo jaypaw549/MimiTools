@@ -31,10 +31,7 @@ namespace MimiTools.ProxyObjects
             CreateWrapperDelegate(type, typeBuilder, ImplementWrapperConstructor(type, typeBuilder, fieldContract));
 
             if (type.IsInterface)
-            {
-                typeBuilder.SetParent(typeof(ValueType));
                 typeBuilder.AddInterfaceImplementation(type);
-            }
 
             else if (type.IsClass && !type.IsSealed)
                 typeBuilder.SetParent(type);
