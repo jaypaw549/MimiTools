@@ -375,6 +375,7 @@ namespace MimiTools.ProxyObjects
             generator.Emit(OpCodes.Ldstr, HandlerParameter);
             generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
             generator.Emit(OpCodes.Throw);
+            generator.Emit(OpCodes.Ret);
 
             return constructorBuilder;
         }
@@ -405,6 +406,7 @@ namespace MimiTools.ProxyObjects
             generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Brfalse_S, if_null);
 
+            generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Ldtoken, type);
             generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
             generator.Emit(OpCodes.Callvirt, ProxyHelper.VerifyMethod);
