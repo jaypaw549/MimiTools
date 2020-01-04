@@ -23,11 +23,11 @@ namespace MimiTools.ProxyObjects
         public T FromContract<T>(IProxyContract contract) where T : class
             => (T)GetContainer(typeof(T)).FromContract(contract);
 
-        public object FromHandler(Type t, IProxyHandler handler, long id)
-            => GetContainer(t).CreateNew(handler, id);
+        //public object FromHandler(Type t, IProxyHandler handler, long id)
+        //    => GetContainer(t).CreateNew(handler, id);
 
-        public T FromHandler<T>(IProxyHandler handler, long id) where T : class
-            => (T)GetContainer(typeof(T)).CreateNew(handler, id);
+        //public T FromHandler<T>(IProxyHandler handler, long id) where T : class
+        //    => (T)GetContainer(typeof(T)).CreateNew(handler, id);
 
         private FactoryContainer GetContainer(Type t)
         {
@@ -45,15 +45,15 @@ namespace MimiTools.ProxyObjects
             {
                 TypeInfo impl = ProxyTypeCreator.CreateImplementation(t, override_virtual);
 
-                CreateNew = CreateDelegate<Func<IProxyHandler, long, object>>(
-                    impl.GetMethod(
-                        ProxyTypeCreator.CreateNew,
-                        BindingFlags.Static | BindingFlags.Public,
-                        null,
-                        new Type[] { typeof(IProxyHandler), typeof(long) },
-                        null
-                    )
-                );
+                //CreateNew = CreateDelegate<Func<IProxyHandler, long, object>>(
+                //    impl.GetMethod(
+                //        ProxyTypeCreator.CreateNew,
+                //        BindingFlags.Static | BindingFlags.Public,
+                //        null,
+                //        new Type[] { typeof(IProxyHandler), typeof(long) },
+                //        null
+                //    )
+                //);
 
                 FromContract = CreateDelegate<Func<IProxyContract, object>>(
                     impl.GetMethod(
@@ -68,7 +68,7 @@ namespace MimiTools.ProxyObjects
 
             }
 
-            internal readonly Func<IProxyHandler, long, object> CreateNew;
+            //internal readonly Func<IProxyHandler, long, object> CreateNew;
             internal readonly Func<IProxyContract, object> FromContract;
         }
 

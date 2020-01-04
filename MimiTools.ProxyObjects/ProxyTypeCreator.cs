@@ -9,12 +9,12 @@ namespace MimiTools.ProxyObjects
 {
     internal static class ProxyTypeCreator
     {
-        internal const string CreateNew = "CreateNew";
+        //internal const string CreateNew = "CreateNew";
         internal const string FromContract = "FromContract";
 
         private const string ContractParameter = "contract";
-        private const string HandlerParameter = "handler";
-        private const string IDParameter = "id";
+        //private const string HandlerParameter = "handler";
+        //private const string IDParameter = "id";
 
         private const BindingFlags _flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
@@ -31,7 +31,7 @@ namespace MimiTools.ProxyObjects
 
             FieldBuilder fieldContract = typeBuilder.DefineField("_contract", typeof(IProxyContract), FieldAttributes.Private | FieldAttributes.InitOnly);
 
-            CreateNewDelegate(type, typeBuilder, ImplementNewConstructor(type, typeBuilder, fieldContract));
+            //CreateNewDelegate(type, typeBuilder, ImplementNewConstructor(type, typeBuilder, fieldContract));
             CreateWrapperDelegate(type, typeBuilder, ImplementWrapperConstructor(type, typeBuilder, fieldContract));
 
             if (type.IsInterface)
@@ -54,21 +54,21 @@ namespace MimiTools.ProxyObjects
             return typeBuilder.CreateTypeInfo();
         }
 
-        private static MethodBuilder CreateNewDelegate(Type type, TypeBuilder typeBuilder, ConstructorBuilder constructorBuilder)
-        {
-            MethodBuilder methodBuilder = typeBuilder.DefineMethod(CreateNew, MethodAttributes.Public | MethodAttributes.Static,
-                type, new Type[] { typeof(IProxyHandler), typeof(long) });
+        //private static MethodBuilder CreateNewDelegate(Type type, TypeBuilder typeBuilder, ConstructorBuilder constructorBuilder)
+        //{
+        //    MethodBuilder methodBuilder = typeBuilder.DefineMethod(CreateNew, MethodAttributes.Public | MethodAttributes.Static,
+        //        type, new Type[] { typeof(IProxyHandler), typeof(long) });
 
-            ILGenerator generator = methodBuilder.GetILGenerator();
+        //    ILGenerator generator = methodBuilder.GetILGenerator();
 
-            generator.Emit(OpCodes.Ldarg_0);
-            generator.Emit(OpCodes.Ldarg_1);
-            generator.Emit(OpCodes.Newobj, constructorBuilder);
-            generator.Emit(OpCodes.Castclass, type);
-            generator.Emit(OpCodes.Ret);
+        //    generator.Emit(OpCodes.Ldarg_0);
+        //    generator.Emit(OpCodes.Ldarg_1);
+        //    generator.Emit(OpCodes.Newobj, constructorBuilder);
+        //    generator.Emit(OpCodes.Castclass, type);
+        //    generator.Emit(OpCodes.Ret);
 
-            return methodBuilder;
-        }
+        //    return methodBuilder;
+        //}
 
         private static MethodBuilder CreateWrapperDelegate(Type type, TypeBuilder typeBuilder, ConstructorBuilder constructorBuilder)
         {
@@ -322,63 +322,63 @@ namespace MimiTools.ProxyObjects
             return methodBuilder;
         }
 
-        private static ConstructorBuilder ImplementNewConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder contractField)
-        {
-            ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
-                MethodAttributes.Public,
-                CallingConventions.HasThis,
-                new Type[] { typeof(IProxyHandler), typeof(long) }
-                );
+        //private static ConstructorBuilder ImplementNewConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder contractField)
+        //{
+        //    ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
+        //        MethodAttributes.Public,
+        //        CallingConventions.HasThis,
+        //        new Type[] { typeof(IProxyHandler), typeof(long) }
+        //        );
 
-            ILGenerator generator = constructorBuilder.GetILGenerator();
+        //    ILGenerator generator = constructorBuilder.GetILGenerator();
 
-            if (type.IsClass)
-            {
-                ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        //    if (type.IsClass)
+        //    {
+        //        ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
 
-                if (constructor == null)
-                    throw new InvalidOperationException("No default constructor detected!");
+        //        if (constructor == null)
+        //            throw new InvalidOperationException("No default constructor detected!");
 
-                if (!constructor.IsPublic | !constructor.IsFamily | !constructor.IsFamilyOrAssembly)
-                    throw new InvalidOperationException("Default constructor is inaccessible!");
+        //        if (!constructor.IsPublic | !constructor.IsFamily | !constructor.IsFamilyOrAssembly)
+        //            throw new InvalidOperationException("Default constructor is inaccessible!");
 
-                generator.Emit(OpCodes.Ldarg_0);
-                generator.Emit(OpCodes.Call, constructor);
-            }
+        //        generator.Emit(OpCodes.Ldarg_0);
+        //        generator.Emit(OpCodes.Call, constructor);
+        //    }
 
-            Label if_null = generator.DefineLabel();
-            Label if_no_contract = generator.DefineLabel();
+        //    Label if_null = generator.DefineLabel();
+        //    Label if_no_contract = generator.DefineLabel();
 
-            generator.Emit(OpCodes.Ldarg_1);
-            generator.Emit(OpCodes.Brfalse_S, if_null);
+        //    generator.Emit(OpCodes.Ldarg_1);
+        //    generator.Emit(OpCodes.Brfalse_S, if_null);
 
-            generator.Emit(OpCodes.Ldarg_0);
-            generator.Emit(OpCodes.Ldarg_1);
-            generator.Emit(OpCodes.Ldarg_2);
-            generator.Emit(OpCodes.Ldtoken, type);
-            generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
-            generator.Emit(OpCodes.Callvirt, ProxyHelper.CreateContractMethod);
+        //    generator.Emit(OpCodes.Ldarg_0);
+        //    generator.Emit(OpCodes.Ldarg_1);
+        //    generator.Emit(OpCodes.Ldarg_2);
+        //    generator.Emit(OpCodes.Ldtoken, type);
+        //    generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
+        //    generator.Emit(OpCodes.Callvirt, ProxyHelper.CreateContractMethod);
 
-            generator.Emit(OpCodes.Dup);
-            generator.Emit(OpCodes.Brfalse_S, if_no_contract);
+        //    generator.Emit(OpCodes.Dup);
+        //    generator.Emit(OpCodes.Brfalse_S, if_no_contract);
 
-            generator.Emit(OpCodes.Stfld, contractField);
-            generator.Emit(OpCodes.Ret);
+        //    generator.Emit(OpCodes.Stfld, contractField);
+        //    generator.Emit(OpCodes.Ret);
 
-            generator.MarkLabel(if_no_contract);
-            generator.Emit(OpCodes.Pop);
-            generator.Emit(OpCodes.Ldstr, "Handler did not provide a contract!");
-            generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
-            generator.Emit(OpCodes.Throw);
+        //    generator.MarkLabel(if_no_contract);
+        //    generator.Emit(OpCodes.Pop);
+        //    generator.Emit(OpCodes.Ldstr, "Handler did not provide a contract!");
+        //    generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
+        //    generator.Emit(OpCodes.Throw);
 
-            generator.MarkLabel(if_null);
-            generator.Emit(OpCodes.Ldstr, HandlerParameter);
-            generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
-            generator.Emit(OpCodes.Throw);
-            generator.Emit(OpCodes.Ret);
+        //    generator.MarkLabel(if_null);
+        //    generator.Emit(OpCodes.Ldstr, HandlerParameter);
+        //    generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
+        //    generator.Emit(OpCodes.Throw);
+        //    generator.Emit(OpCodes.Ret);
 
-            return constructorBuilder;
-        }
+        //    return constructorBuilder;
+        //}
 
         private static ConstructorBuilder ImplementWrapperConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder contractField)
         {
