@@ -32,11 +32,17 @@ namespace MimiTools.ProxyObjects
 
         internal static TypeInfo CreateImplementation(Type type, bool virt)
         {
+            AssemblyBuilder asmBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName($"ProxyObject.{type.Name}.dll"), AssemblyBuilderAccess.RunAndCollect);
+            ModuleBuilder modBuilder = asmBuilder.DefineDynamicModule(type.FullName);
+
+            return CreateImplementation(modBuilder, type, virt);
+        }
+
+        private static TypeInfo CreateImplementation(ModuleBuilder modBuilder, Type type, bool virt)
+        {
             if (!ChainCheckType(type))
                 throw new ArgumentException("Generated assemblies cannot access the target class!");
 
-            AssemblyBuilder asmBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName($"ProxyObject.{type.Name}.dll"), AssemblyBuilderAccess.RunAndCollect);
-            ModuleBuilder modBuilder = asmBuilder.DefineDynamicModule(type.FullName);
             TypeBuilder typeBuilder = modBuilder.DefineType(
                 "Proxy" + type.Name,
                 TypeAttributes.Public | TypeAttributes.Serializable | TypeAttributes.Class);
