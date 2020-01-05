@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>MimiTools.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>../MimiTools.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
