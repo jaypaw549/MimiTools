@@ -8,7 +8,7 @@ namespace MimiTools.ProxyObjects
         internal static ConstructorInfo ArgumentNullException { get; } = typeof(ArgumentNullException).GetConstructor(new Type[] { typeof(string) });
         internal static ConstructorInfo InvalidOperationException { get; } = typeof(InvalidOperationException).GetConstructor(new Type[] { typeof(string) });
 
-        internal static MethodInfo CreateContractMethod { get; } = typeof(IProxyHandler).GetMethod(nameof(IProxyHandler.GetContract));
+        //internal static MethodInfo CreateContractMethod { get; } = typeof(IProxyHandler).GetMethod(nameof(IProxyHandler.GetContract));
 
         internal static MethodInfo GetMethodOperation { get; } = typeof(MethodBase).GetMethod(nameof(MethodBase.GetMethodFromHandle), new Type[] {
             typeof(RuntimeMethodHandle),

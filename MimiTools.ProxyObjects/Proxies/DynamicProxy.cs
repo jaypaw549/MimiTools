@@ -14,7 +14,7 @@ namespace MimiTools.ProxyObjects.Proxies
         /// <param name="perms">The permissions to pass to the proxy object</param>
         /// <returns>A proxy object representing of the interfaces on the object.</returns>
         public static T Create<T>(T obj) where T : class
-            => ProxyFactory.Default.FromContract<T>(new DynamicContract(new DynamicHelper(), obj));
+            => ProxyFactory.AbstractOnly.FromContract<T>(new DynamicContract(new DynamicHelper(), obj));
 
         public static IProxyContract CreateContract(object obj)
             => new DynamicContract(new DynamicHelper(), obj);
@@ -37,7 +37,7 @@ namespace MimiTools.ProxyObjects.Proxies
         public static Func<T, T> CreateFactory<T>() where T : class
         {
             DynamicHelper handler = new DynamicHelper();
-            return obj => ProxyFactory.Default.FromContract<T>(new DynamicContract(handler, obj));
+            return obj => ProxyFactory.AbstractOnly.FromContract<T>(new DynamicContract(handler, obj));
         }
 
         private class DynamicContract : IProxyContract

@@ -7,7 +7,8 @@ namespace MimiTools.ProxyObjects
 {
     public class ProxyFactory
     {
-        public static ProxyFactory Default { get; } = new ProxyFactory(false);
+        public static ProxyFactory AbstractOnly { get; } = new ProxyFactory(false);
+        public static ProxyFactory OverrideVirtual { get; } = new ProxyFactory(true);
 
         public ProxyFactory(bool override_virtual)
         {

@@ -18,9 +18,21 @@ namespace MimiTools.ProxyObjects
 
         private const BindingFlags _flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
+        private static bool ChainCheckType(Type type)
+        {
+            while(type.IsNested)
+            {
+                if (!type.IsNestedPublic)
+                    return false;
+                type = type.DeclaringType;
+            }
+
+            return type.IsPublic;
+        }
+
         internal static TypeInfo CreateImplementation(Type type, bool virt)
         {
-            if (!type.IsPublic || (type.IsNested && !type.IsNestedPublic))
+            if (!ChainCheckType(type))
                 throw new ArgumentException("Generated assemblies cannot access the target class!");
 
             AssemblyBuilder asmBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName($"ProxyObject.{type.Name}.dll"), AssemblyBuilderAccess.RunAndCollect);
@@ -152,6 +164,9 @@ namespace MimiTools.ProxyObjects
                     throw new InvalidOperationException("Cannot access non-public and non-family members to override them!");
                 return null;
             }
+
+            if (!mi.IsVirtual)
+                return null;
 
             if (!mi.IsAbstract && !virt)
                 return null;
@@ -334,12 +349,12 @@ namespace MimiTools.ProxyObjects
 
         //    if (type.IsClass)
         //    {
-        //        ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        //        ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
         //        if (constructor == null)
         //            throw new InvalidOperationException("No default constructor detected!");
 
-        //        if (!constructor.IsPublic | !constructor.IsFamily | !constructor.IsFamilyOrAssembly)
+        //        if (!constructor.IsPublic && !constructor.IsFamily && !constructor.IsFamilyOrAssembly)
         //            throw new InvalidOperationException("Default constructor is inaccessible!");
 
         //        generator.Emit(OpCodes.Ldarg_0);
@@ -388,12 +403,12 @@ namespace MimiTools.ProxyObjects
 
             if (type.IsClass)
             {
-                ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+                ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
                 if (constructor == null)
                     throw new InvalidOperationException("No default constructor detected!");
 
-                if (!constructor.IsPublic | !constructor.IsFamily | !constructor.IsFamilyOrAssembly)
+                if (!constructor.IsPublic && !constructor.IsFamily && !constructor.IsFamilyOrAssembly)
                     throw new InvalidOperationException("Default constructor is inaccessible!");
 
                 generator.Emit(OpCodes.Ldarg_0);

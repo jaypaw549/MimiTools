@@ -6,10 +6,10 @@ namespace MimiTools.ProxyObjects.Proxies
     public static class ReflectionProxy
     {
         public static object Create(Type t, object obj)
-            => ProxyFactory.Default.FromContract(t, new ReflectionContract(t));
+            => ProxyFactory.AbstractOnly.FromContract(t, new ReflectionContract(t));
 
         public static T Create<T>(T obj) where T : class
-            => ProxyFactory.Default.FromContract<T>(new ReflectionContract(obj));
+            => ProxyFactory.AbstractOnly.FromContract<T>(new ReflectionContract(obj));
 
         private class ReflectionContract : IProxyContract
         {

@@ -14,27 +14,43 @@ namespace MimiTools.ProxyObjects.Proxies
         public CustomProxy()
         {
             _helper = null;
+            _factory = ProxyFactory.OverrideVirtual;
             _obj = null;
         }
 
         public CustomProxy(object obj)
         {
-            if (obj == null)
-                throw new ArgumentNullException(nameof(obj), "Parameter cannot be null! if you don't want to wrap an object, use the default constructor!");
-            _obj = obj;
+            _factory = ProxyFactory.OverrideVirtual;
+            _obj = obj ?? throw new ArgumentNullException(nameof(obj));
+            _helper = new DynamicHelper();
+        }
+
+        public CustomProxy(ProxyFactory factory)
+        {
+            _helper = null;
+            _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+            _obj = null;
+        }
+
+        public CustomProxy(object obj, ProxyFactory factory)
+        {
+            _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+            _obj = obj ?? throw new ArgumentNullException(nameof(obj));
+            _helper = new DynamicHelper();
         }
 
         private readonly DynamicHelper _helper;
+        private readonly ProxyFactory _factory;
         private readonly Dictionary<MethodInfo, CustomProxyDelegate> _implementations = new Dictionary<MethodInfo, CustomProxyDelegate>();
         private readonly object _obj;
 
         public event Func<MethodInfo, CustomProxyDelegate> MethodResolve;
 
         public T AsProxy<T>() where T : class
-            => ProxyFactory.Default.FromContract<T>(this);
+            => _factory.FromContract<T>(this);
 
         public object AsProxy<T>(Type t)
-            => ProxyFactory.Default.FromContract(t, this);
+            => _factory.FromContract(t, this);
 
         public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
         {
@@ -52,14 +68,15 @@ namespace MimiTools.ProxyObjects.Proxies
             var resolvers = MethodResolve?.GetInvocationList();
 
             if (resolvers != null)
-                foreach (var cpd in from r in resolvers.Cast<Func<MethodInfo, CustomProxyDelegate>>()
-                                    let cpd = r(method)
-                                    where cpd != null
-                                    select cpd)
+                foreach (var r in resolvers.Cast<Func<MethodInfo, CustomProxyDelegate>>())
                 {
-                    lock (_implementations)
-                        _implementations[method] = cpd;
-                    return cpd(this, args);
+                    var cpd = r(method);
+                    if (cpd != null)
+                    {
+                        lock (_implementations)
+                            _implementations[method] = cpd;
+                        return cpd(null, args);
+                    }
                 }
 
             throw new NotImplementedException();
