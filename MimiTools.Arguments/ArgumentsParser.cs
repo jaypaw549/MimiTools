@@ -232,7 +232,6 @@ namespace MimiTools.Arguments
 
         public static void AddBasicParsers(ArgumentsParser arg_parser)
         {
-
             arg_parser.AddConverter(BasicConverter.Instance);
             arg_parser.AddConverter(EnumConverter.Instance);
             arg_parser.AddConverter(new NullableConverter(arg_parser));
