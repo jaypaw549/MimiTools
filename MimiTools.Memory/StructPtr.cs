@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace MimiTools.Memory
 {
-    public readonly struct StructPtr<T> where T : unmanaged
+    public readonly ref struct StructPtr<T> where T : unmanaged
     {
         public IntPtr Pointer { get; }
 
@@ -13,9 +14,6 @@ namespace MimiTools.Memory
         public T Value { get => Reference; set => Reference = value; }
 
         public unsafe StructPtr(ref T target)
-        {
-            fixed (T* ptr = &target)
-                Pointer = new IntPtr(ptr);
-        }
+            => Pointer = new IntPtr(Unsafe.AsPointer(ref target));
     }
 }
