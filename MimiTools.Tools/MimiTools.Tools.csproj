@@ -6,6 +6,11 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../MimiTools.snk</AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.7.0" />
+  </ItemGroup>
 
 </Project>

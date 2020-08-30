@@ -6,206 +6,139 @@ using System.Threading.Tasks;
 namespace MimiTools.Sync
 {
     /// <summary>
-    /// A class that really abuses SyncLock, and allows synchronous and asynchronous waiting of signals from other threads. Future implementations could allow for passing objects between threads.
-    /// 
-    /// This class itself works by creating a SyncLock object for every call to wait, and enqueing the lock into the queue for eventual release. It then tries to reacquire the lock for the amount
-    /// of time specified, and if it's successful it'll signal it's successful. If not it'll release the lock, making it get passed over in the queue when signals are sent.
-    /// 
-    /// This class, like SyncLock, is theoretically thread-safe, however it uses SyncLock to maintain that thread safety and is therefore reliant on its thread safety.
+    /// A class that abuses <see cref="AsyncLock"/> and allows synchronous and asynchronous waiting of signals from other threads.
+    /// For passing objects or values between threads, see <see cref="AsyncDispatcher{T}" />.
+    /// This class is thread-safe (probably)
     /// </summary>
-    public class AsyncWaiter
+    public sealed class AsyncWaiter
     {
-        /// <summary>
-        /// The lock to make sure that our queue works appropriately.
-        /// </summary>
-        private readonly SyncLock _sync = new SyncLock();
-
-        private readonly Queue<DisposableWrapper> queue = new Queue<DisposableWrapper>();
-
-        private int pulses = 0;
-
-        public int GetQueueLength()
+        public AsyncWaiter()
         {
-            using (_sync.GetLock())
-                return queue.Count;
-        }
-
-        public async Task<int> GetQueueLengthAsync()
-        {
-            using (await _sync.GetLockAsync().ConfigureAwait(false))
-                return queue.Count;
-        }
-
-        public void Pulse(bool future_pulse = false)
-            => PulseMany(1, future_pulse);
-
-        public void PulseAll()
-        {
-            using (_sync.GetLock())
-            {
-                while (queue.Count > 0)
-                    queue.Dequeue().Dispose();
-            }
-        }
-
-        public async Task PulseAllAsync()
-        {
-            using (await _sync.GetLockAsync())
-            {
-                while (queue.Count > 0)
-                    queue.Dequeue().Dispose();
-            }
-        }
-
-        public Task PulseAsync(bool future_pulse = false)
-            => PulseManyAsync(1, future_pulse);
-
-        public void PulseMany(int count, bool future_pulse = false)
-        {
-            using (_sync.GetLock())
-            {
-                while (queue.Count > 0 && count > 0)
-                    if (queue.Dequeue().Dispose())
-                        count--;
-
-                if (count > 0 && future_pulse)
-                    pulses += count;
-            }
-        }
-
-        public async Task PulseManyAsync(int count, bool future_pulse = false)
-        {
-            using (await _sync.GetLockAsync())
-            {
-                while (queue.Count > 0 && count > 0)
-                    if (queue.Dequeue().Dispose())
-                        count--;
-
-                if (count > 0 && future_pulse)
-                    pulses += count;
-            }
+            _next = _sync.GetLock().Id;
         }
 
         /// <summary>
-        /// A wrapper method for the other method, Creates a cancellation token that expires after the specified timeout.
+        /// The lock responsible for holding up waiting threads/tasks
         /// </summary>
-        /// <param name="timeout">How long to wait for a signal in milliseconds</param>
-        /// <returns>True, if a signal was received in time. False if the operation timed out</returns>
-        public bool Wait(int timeout = -1)
-        {
-            using (CancellationTokenSource source = new CancellationTokenSource(timeout))
-                return Wait(source.Token);
-        }
+        private readonly AsyncLock _sync = new AsyncLock();
 
         /// <summary>
-        /// Waits for a signal from another thread, aborting if the operation is cancelled
+        /// The current lock for <see cref="_sync"/>, Release to let a single waiter to stop waiting.
         /// </summary>
-        /// <param name="token"></param>
-        /// <returns>True, if the operation succeeds. False if the operation is cancelled</returns>
-        public bool Wait(CancellationToken token)
+        private volatile int _next;
+
+        /// <summary>
+        /// The signal balance, positive if there are outstanding signals.
+        /// </summary>
+        private int _signals = 0;
+
+        /// <summary>
+        /// Sends a single non-future signal, letting the next task or thread in line continue execution
+        /// </summary>
+        /// <returns>true if we signaled a task or thread successfully</returns>
+        public bool Signal()
+            => Signal(1, false) == 1;
+
+        /// <summary>
+        /// Sends a single signal, optionally storing it if there's no waiters, so that future waiters can recieve them.
+        /// </summary>
+        /// <param name="future">whether or not to store the signal if there's nothing to signal at the time</param>
+        /// <returns>false if we couldn't signal anything. True if we stored a signal or signaled a waiting thread or task successfully</returns>
+        public bool Signal(bool future)
+            => Signal(1, future) == 1;
+
+        /// <summary>
+        /// Sends the specified amount of signals to enqueued waters.
+        /// </summary>
+        /// <param name="count">The number of signals to send</param>
+        /// <returns>The number of tasks and threads that recieved the signal.</returns>
+        public int Signal(int count)
+            => Signal(count, false);
+
+        /// <summary>
+        /// Sends the specified amount of signals. If future is false, tries to limit the number of signals to the number of waiters.
+        /// This is not guaranteed to work.
+        /// </summary>
+        /// <param name="count">The number of signals to send</param>
+        /// <param name="future">Whether or not to store the excess signals</param>
+        /// <returns>How many signals were sent and/or stored</returns>
+        public int Signal(int count, bool future)
         {
-            //Create a new lock to wait for
-            SyncLock blocker;
-
-            //Then acquires the lock and wraps it up in preperation to offering it to the queue
-            DisposableWrapper wrapper;
-
-            //Next acquires the lock for this instance, and enqueues our wrapped lock
-            using (_sync.GetLock())
+            if (!future)
             {
-                if (pulses > 0)
-                {
-                    pulses--;
+                int waiting = _sync.WaitQueue - Volatile.Read(ref _signals);
+                if (waiting < count)
+                    count = waiting;
+            }
+
+            if (count <= 0)
+                return 0;
+
+            Interlocked.Add(ref _signals, count);
+            if (_sync.TryGetCurrentLock(_next, out AsyncLock.Lock l))
+                l.Release();
+
+            return count;
+        }
+        
+        /// <summary>
+        /// Sends a number of signals equal to the number of waiters in queue at the start of execution of this method.
+        /// </summary>
+        public void SignalAll()
+            => Signal(_sync.WaitQueue, false);
+
+        /// <summary>
+        /// Attempts to consume a signal, used to check if we need to block at all.
+        /// </summary>
+        /// <returns>True if we can return right away.</returns>
+        private bool TryConsumeSignal()
+        {
+            int signals = Volatile.Read(ref _signals);
+            while (signals > 0)
+            {
+                int ret = Interlocked.CompareExchange(ref _signals, signals - 1, signals);
+                if (ret == signals)
                     return true;
-                }
-                blocker = new SyncLock();
-                queue.Enqueue(wrapper = new DisposableWrapper(blocker.GetLock()));
+                signals = ret;
             }
-
-            //Finally, waits for the lock, and if we time out, we release it ourselves. 
-            //If on the rare chance the lock is released between the time we stop waiting and the time we try to release it, say we were signalled successfully
-            if (!blocker.TryGetLock(token, out IDisposable @lock))
-                return !wrapper.Dispose(); //Just in case a last minute call lets us return true;
-
-            //If we did get a lock however, release that
-            @lock.Dispose();
-
-            //Before finally signaling that we were successfuly
-            return true;
+            return false;
         }
 
         /// <summary>
-        /// A wrapper method for the other method, Creates a cancellation token that expires after the specified timeout.
+        /// Attempts to pass the signal on, used to simplify the process of signaling multiple tasks and/or threads.
         /// </summary>
-        /// <param name="timeout">How long to wait for a signal in milliseconds</param>
-        /// <returns>True, if a signal was received in time. False if the operation timed out</returns>
-        public async Task<bool> WaitAsync(int timeout = -1)
+        /// <param name="l">The lock that we will release as our signal to the next thread or task in line.</param>
+        private void TryPassSignal(AsyncLock.Lock l)
         {
-            using (CancellationTokenSource source = new CancellationTokenSource(timeout))
-                return await WaitAsync(source.Token);
+            _next = l.Id;
+
+            if (Interlocked.Decrement(ref _signals) > 0)
+                l.Release();
         }
 
         /// <summary>
-        /// Asynchronously waits for a signal from another thread, aborting if the operation is cancelled
+        /// Waits for a signal synchronously.
         /// </summary>
-        /// <param name="token"></param>
-        /// <returns>True, if the operation succeeds. False if the operation is cancelled</returns>
-        public async Task<bool> WaitAsync(CancellationToken token)
+        public void Wait()
         {
-            //The SyncLock to use
-            SyncLock blocker;
+            if (TryConsumeSignal())
+                return;
 
-            //The lock wrapper
-            DisposableWrapper wrapper;
+            TryPassSignal(_sync.GetLock());
 
-            //Next acquires the lock for this instance, and enqueues our wrapped lock
-            using (await _sync.GetLockAsync().ConfigureAwait(false))
-            {
-                //If we have leftover pulses, consume one instead of waiting.
-                if (pulses > 0)
-                {
-                    pulses--;
-                    return true;
-                }
-
-                //Otherwise create the SyncLock
-                blocker = new SyncLock();
-
-                //And wrap up a lock from it for eventual release
-                queue.Enqueue(wrapper = new DisposableWrapper(await blocker.GetLockAsync()));
-            }
-
-            //Finally, waits for the lock, and if we time out, we release it ourselves. 
-            //If on the rare chance the lock is released between the time we stop waiting and the time we try to release it, say we were signalled successfully
-            if (!await blocker.TryGetLockAsync(token, l => l.Dispose()))
-                return !wrapper.Dispose();
-
-            //say we were signalled successfully.
-            return true;
         }
 
         /// <summary>
-        /// A private class to track whether or not we have already disposed of our lock.
+        /// Waits for a signal asynchronously.
         /// </summary>
-        private class DisposableWrapper
+        /// <returns>A task that completes when a signal is received</returns>
+        public async Task WaitAsync()
         {
-            internal DisposableWrapper(IDisposable target)
-            {
-                Target = target;
-            }
+            if (TryConsumeSignal())
+                return;
 
-            private volatile IDisposable Target;
-
-            /// <summary>
-            /// Disposes of the lock
-            /// </summary>
-            /// <returns>whether or not the lock has already been disposed of</returns>
-            internal bool Dispose()
-            {
-                IDisposable target = Interlocked.Exchange(ref Target, null);
-                target?.Dispose();
-                return target != null;
-            }
+            TryPassSignal(await _sync.GetLockAsync());
+            await Task.Yield();
         }
     }
 }

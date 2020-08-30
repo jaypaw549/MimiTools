@@ -4,11 +4,11 @@ using System.Threading.Tasks;
 namespace MimiTools.Sync
 {
     /// <summary>
-    /// AsyncSync Class, Allows for Synchronized execution of code inside an asynchronous environment
+    /// Allows for synchronized execution of code inside an asynchronous environment
     /// </summary>
-    public class AsyncSync
+    public class AsyncExecutor
     {
-        protected readonly SyncLock sync = new SyncLock();
+        protected readonly ReentrantLock sync = new ReentrantLock();
 
         /// <summary>
         /// Enqueues the Action, executing it after previously queued actions and functions complete. Runs Synchronously if no other tasks are queued.
@@ -16,9 +16,9 @@ namespace MimiTools.Sync
         /// </summary>
         /// <param name="a">The action to perform</param>
         /// <returns></returns>
-        public virtual async Task Execute(Action a)
+        public async virtual Task Execute(Action a)
         {
-            using (await sync.GetLockAsync().ConfigureAwait(false))
+            using (await sync.RequestLock().ConfigureBind(true))
                 a();
         }
 
@@ -28,11 +28,10 @@ namespace MimiTools.Sync
         /// </summary>
         /// <param name="f">The function to get the result of</param>
         /// <returns>The result of the function</returns>
-        public async Task<T> Execute<T>(Func<T> f)
+        public virtual async Task<T> Execute<T>(Func<T> f)
         {
-            T result = default;
-            await Execute(delegate { result = f(); }).ConfigureAwait(false);
-            return result;
+            using (await sync.RequestLock().ConfigureBind(true))
+                return f();
         }
 
         /// <summary>
@@ -43,7 +42,7 @@ namespace MimiTools.Sync
         /// <returns>The result of the function</returns>
         public virtual async Task ExecuteAsync(Func<Task> f)
         {
-            using (await sync.GetLockAsync().ConfigureAwait(false))
+            using (await sync.RequestLock().ConfigureBind(true))
                 await f().ConfigureAwait(false);
         }
 
@@ -53,11 +52,10 @@ namespace MimiTools.Sync
         /// </summary>
         /// <param name="f">The function to get the result of</param>
         /// <returns>The result of the function</returns>
-        public async Task<T> ExecuteAsync<T>(Func<Task<T>> f)
+        public virtual async Task<T> ExecuteAsync<T>(Func<Task<T>> f)
         {
-            T result = default;
-            await ExecuteAsync(async delegate () { result = await f(); }).ConfigureAwait(false);
-            return result;
+            using (await sync.RequestLock().ConfigureBind(true))
+                return await f().ConfigureAwait(false);
         }
     }
 }

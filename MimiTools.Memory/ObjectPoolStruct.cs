@@ -23,6 +23,12 @@ namespace MimiTools.Memory
             _stack = null;
         }
 
+        public int DecreaseLimit(int amount)
+            => Interlocked.Add(ref _limit, -amount);
+
+        public int IncreaseLimit(int amount)
+            => Interlocked.Add(ref _limit, amount);
+
         public bool TryAdd(T obj)
         {
             if (!TryReserveSlot())
@@ -34,7 +40,7 @@ namespace MimiTools.Memory
             {
                 Volatile.Write(ref obj.Next, item);
                 T ret = Interlocked.CompareExchange(ref _stack, obj, item);
-                if (ret == item)
+                if (ReferenceEquals(ret, item))
                     break;
                 item = ret;
             }
@@ -74,7 +80,8 @@ namespace MimiTools.Memory
             if (item != null)
             {
                 Interlocked.Decrement(ref _count);
-                item?.Reset(true);
+                Volatile.Write(ref item.Next, null);
+                item.Reset(true);
             }
 
             obj = item;

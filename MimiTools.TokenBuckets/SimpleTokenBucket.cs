@@ -7,7 +7,7 @@ namespace MimiTools.TokenBuckets
 {
     public class SimpleTokenBucket
     {
-        private readonly AsyncSync AsyncLock = new AsyncSync();
+        private readonly AsyncExecutor AsyncLock = new AsyncExecutor();
         private readonly DateTimeOffset[] Bucket;
         private readonly TimeSpan Cooldown;
         private int Pointer = 0;

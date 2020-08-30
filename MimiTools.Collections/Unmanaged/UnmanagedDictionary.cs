@@ -1,14 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace MimiTools.Collections.Unmanaged
 {
-    public unsafe ref struct UnmanagedStackDictionary<TKey, TValue> where TKey : unmanaged where TValue : unmanaged
+    public unsafe struct UnmanagedDictionary<TKey, TValue> : IDisposable, IDictionary<TKey, TValue> where TKey : unmanaged where TValue : unmanaged
     {
-        private UnmanagedStructCollection<BasicEntry> _entries;
-        private UnmanagedHashStructure<BasicEntry> _hash;
-        private BasicEntry* _freelist;
+        private UnmanagedStorage<DictionaryEntry> _entries;
+        private UnmanagedHashStructure<DictionaryEntry> _hash;
+        private DictionaryEntry* _freelist;
 
         public ICollection<TKey> Keys => Array.ConvertAll(GetKeyValuePairs(), kvp => kvp.Key);
 
@@ -18,11 +19,13 @@ namespace MimiTools.Collections.Unmanaged
 
         public bool IsReadOnly => false;
 
+        public long MemoryUsage => _entries.MemorySize + _hash.MemorySize;
+
         public TValue this[TKey key]
         {
             get
             {
-                if (GetEntryInfo(key, key.GetHashCode(), out BasicEntry* target, out _))
+                if (GetEntryInfo(key, key.GetHashCode(), out DictionaryEntry* target, out _))
                     return *GetValue(target);
                 throw new KeyNotFoundException("No such key was found in this dictionary!");
             }
@@ -47,10 +50,10 @@ namespace MimiTools.Collections.Unmanaged
 
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
-            if (GetEntryInfo(item.Key, item.Key.GetHashCode(), out BasicEntry* target, out _))
+            if (GetEntryInfo(item.Key, item.Key.GetHashCode(), out DictionaryEntry* target, out _))
             {
                 TKey* key = GetKey(target);
-                TValue* value = GetValue(key);
+                TValue* value = GetValue(target);
 
                 return key->Equals(item.Key) && value->Equals(item.Value);
             }
@@ -82,7 +85,7 @@ namespace MimiTools.Collections.Unmanaged
 
         public bool Remove(TKey key)
         {
-            if (!GetEntryInfo(key, key.GetHashCode(), out BasicEntry* target, out BasicEntry* prev))
+            if (!GetEntryInfo(key, key.GetHashCode(), out DictionaryEntry* target, out DictionaryEntry* prev))
                 return false;
 
             Clean(target, prev);
@@ -91,10 +94,10 @@ namespace MimiTools.Collections.Unmanaged
 
         public bool Remove(KeyValuePair<TKey, TValue> item)
         {
-            if (GetEntryInfo(item.Key, item.Key.GetHashCode(), out BasicEntry* target, out BasicEntry* prev))
+            if (GetEntryInfo(item.Key, item.Key.GetHashCode(), out DictionaryEntry* target, out DictionaryEntry* prev))
             {
                 TKey* key = GetKey(target);
-                TValue* value = GetValue(key);
+                TValue* value = GetValue(target);
 
                 if (key->Equals(item.Key) && value->Equals(item.Value))
                 {
@@ -116,7 +119,7 @@ namespace MimiTools.Collections.Unmanaged
         public bool TryGetValue(TKey key, out TValue value)
         {
             value = default;
-            if (!GetEntryInfo(key, key.GetHashCode(), out BasicEntry* target, out _))
+            if (!GetEntryInfo(key, key.GetHashCode(), out DictionaryEntry* target, out _))
                 return false;
 
             value = *GetValue(target);
@@ -126,7 +129,7 @@ namespace MimiTools.Collections.Unmanaged
         private bool Alloc(TKey key, TValue value, bool set_if_exists)
         {
             int hash = key.GetHashCode();
-            if (GetEntryInfo(key, hash, out BasicEntry* entry, out _))
+            if (GetEntryInfo(key, hash, out DictionaryEntry* entry, out _))
             {
                 if (set_if_exists)
                 {
@@ -146,20 +149,19 @@ namespace MimiTools.Collections.Unmanaged
             entry->IsValid = true;
             _hash.Add(entry);
 
-            TKey* k_ptr = GetKey(entry);
-            *k_ptr = key;
-            *GetValue(k_ptr) = value;
+            *GetKey(entry) = key;
+            *GetValue(entry) = value;
 
             Count++;
 
             return true;
         }
 
-        private void Clean(BasicEntry* target, BasicEntry* last)
+        private void Clean(DictionaryEntry* target, DictionaryEntry* last)
         {
             _hash.Remove(target, last);
 
-            UnsafeHelper.Zero(target, sizeof(BasicEntry) + _entries.Padding);
+            UnsafeHelper.Zero(target, sizeof(DictionaryEntry) + _entries.Padding);
 
             target->IsValid = false;
             target->Next = _freelist;
@@ -168,7 +170,7 @@ namespace MimiTools.Collections.Unmanaged
             Count--;
         }
 
-        private bool GetEntryInfo(TKey key, int hash, out BasicEntry* target, out BasicEntry* last)
+        private bool GetEntryInfo(TKey key, int hash, out DictionaryEntry* target, out DictionaryEntry* last)
         {
             last = null;
             target = _hash.GetBucket(hash);
@@ -186,7 +188,7 @@ namespace MimiTools.Collections.Unmanaged
 
         private KeyValuePair<TKey, TValue>[] GetKeyValuePairs()
         {
-            UnmanagedStructCollection<BasicEntry> entries = _entries.Clone();
+            UnmanagedStorage<DictionaryEntry> entries = _entries.Clone();
             KeyValuePair<TKey, TValue>[] pairs;
             try
             {
@@ -194,9 +196,8 @@ namespace MimiTools.Collections.Unmanaged
                 pairs = new KeyValuePair<TKey, TValue>[entries.Size];
                 for (int i = 0; i < entries.Size; i++)
                 {
-                    TKey* key = GetKey(entries.GetPointer(i));
-                    TValue* value = GetValue(key);
-                    pairs[i] = new KeyValuePair<TKey, TValue>(*key, *value);
+                    DictionaryEntry* entry = entries.GetPointer(i);
+                    pairs[i] = new KeyValuePair<TKey, TValue>(entry->key, entry->value);
                 }
             }
             finally
@@ -212,14 +213,15 @@ namespace MimiTools.Collections.Unmanaged
             if (size < 5)
                 size = 5;
 
-            _entries.SetPadding(sizeof(TKey) + sizeof(TValue));
+            //_entries.SetPadding(sizeof(TKey) + sizeof(TValue));
+
             _hash.Release();
             _entries.Resize(size);
             _hash.Alloc(HashHelper.NextPrime(size));
 
             for (int i = 0; i < _entries.Size; i++)
             {
-                BasicEntry* entry = _entries.GetPointer(i);
+                DictionaryEntry* entry = _entries.GetPointer(i);
                 if (entry->IsValid)
                     _hash.Add(entry);
                 else
@@ -230,29 +232,38 @@ namespace MimiTools.Collections.Unmanaged
             }
         }
 
-        private static TKey* GetKey(BasicEntry* entry)
-            => (TKey*)(entry + 1);
+        private static TKey* GetKey(DictionaryEntry* entry)
+            => &entry->key;
 
-        private static TValue* GetValue(TKey* key)
-            => (TValue*)(key + 1);
+        private static TValue* GetValue(DictionaryEntry* entry)
+            => &entry->value;
 
-        private static TValue* GetValue(BasicEntry* entry)
-            => GetValue(GetKey(entry));
-    }
+        IEnumerator IEnumerable.GetEnumerator()
+            => GetEnumerator();
 
-    internal struct BasicEntry : IUnmanagedHashItem<BasicEntry>, IUnmanagedMoveable<BasicEntry>
-    {
-        public int Hash { get; set; }
-
-        public unsafe BasicEntry* Next { get; set; }
-
-        public bool IsValid { get; set; }
-
-        public unsafe void MassMoved(long offset_in_bytes)
+        private struct DictionaryEntry : IUnmanagedHashable<DictionaryEntry>, IUnmanagedMoveable<DictionaryEntry>
         {
-            Next = (BasicEntry*)((byte*)Next + offset_in_bytes);
-        }
+            public int Hash { get; set; }
 
-        public unsafe void Moved(BasicEntry* before, BasicEntry* after) { }
+            public unsafe DictionaryEntry* Next { get; set; }
+
+            public bool IsValid { get; set; }
+
+            internal TKey key;
+            internal TValue value;
+
+            public unsafe void MassMoved(long offset_in_bytes)
+            {
+                Next = (DictionaryEntry*)((byte*)Next + offset_in_bytes);
+            }
+
+            /// <summary>
+            /// If we're moved, we'll get rehashed, so just invalidate the previous block.
+            /// </summary>
+            /// <param name="src"></param>
+            public unsafe void OnMoved(DictionaryEntry* src) { src->IsValid = false; }
+
+            public unsafe void OnMoving(DictionaryEntry* dst) { }
+        }
     }
 }

@@ -7,39 +7,41 @@ namespace MimiTools.Memory
 {
     public struct GCHandleRef
     {
-        public bool IsAllocated => _handle != IntPtr.Zero;
-        private IntPtr _handle;
+        public bool IsAllocated => m_handle != IntPtr.Zero;
+        public IntPtr Handle => m_handle;
+        private IntPtr m_handle;
 
         public GCHandleRef(GCHandle handle)
         {
             if (!handle.IsAllocated)
                 throw new ArgumentException("Invalid Handle!");
-            _handle = GCHandle.ToIntPtr(handle);
+            m_handle = GCHandle.ToIntPtr(handle);
         }
 
         public GCHandleRef(object value, GCHandleType type)
         {
-            _handle = GCHandle.ToIntPtr(GCHandle.Alloc(value, type));
+            m_handle = GCHandle.ToIntPtr(GCHandle.Alloc(null, type));
+            ObjectReference<object>() = value;
         }
 
         public GCHandleRef(IntPtr ptr)
         {
-            _handle = ptr;
+            m_handle = ptr;
         }
 
         public void Free()
-            => GCHandle.FromIntPtr(Interlocked.Exchange(ref _handle, IntPtr.Zero)).Free();
+            => GCHandle.FromIntPtr(Interlocked.Exchange(ref m_handle, IntPtr.Zero)).Free();
 
         public unsafe ref T ObjectReference<T>() where T : class
-            => ref Unsafe.AsRef<T>(_handle.ToPointer());
+            => ref Unsafe.AsRef<T>(m_handle.ToPointer());
 
         public ref T ValueReference<T>() where T : struct
             => ref Unsafe.Unbox<T>(ObjectReference<object>());
 
         public static void VolatileRead(ref GCHandleRef handle_ref)
-            => new GCHandleRef(Volatile.Read(ref handle_ref._handle));
+            => new GCHandleRef(Volatile.Read(ref handle_ref.m_handle));
 
         public static void VolatileWrite(ref GCHandleRef handle_ref, GCHandleRef value)
-            => Volatile.Write(ref handle_ref._handle, value._handle);
+            => Volatile.Write(ref handle_ref.m_handle, value.m_handle);
     }
 }

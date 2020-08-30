@@ -10,7 +10,14 @@ namespace MimiTools.Collections
         //max cost of 14, instead of a max cost of 10000 using traditional array scanning. This is an ordered array after all.
         public static int NextPrime(int i)
         {
-        start: int[] data = Volatile.Read(ref _primes);
+            int[] data = Volatile.Read(ref _primes);
+
+            if (data.Length == 0)
+                data = GenerateMorePrimes(data);
+
+            while (data[data.Length - 1] < i)
+                data = GenerateMorePrimes(data);
+
             int lo = 0, hi = data.Length;
 
             while (lo < hi)
@@ -26,16 +33,10 @@ namespace MimiTools.Collections
                     lo = mid + 1;
             }
 
-            if (hi == data.Length)
-            {
-                GenerateMorePrimes(data);
-                goto start;
-            }
-
             return _primes[hi];
         }
 
-        private static unsafe void GenerateMorePrimes(int[] data)
+        private static int[] GenerateMorePrimes(int[] data)
         {
             int count = data.Length;
             Array.Resize(ref data, data.Length + 10000);
@@ -55,7 +56,10 @@ namespace MimiTools.Collections
 
                 data[count++] = c;
             }
+
             Volatile.Write(ref _primes, data);
+
+            return data;
         }
     }
 }

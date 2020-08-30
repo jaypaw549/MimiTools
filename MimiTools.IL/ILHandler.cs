@@ -1,57 +1,40 @@
 ﻿using System.Collections.Generic;
+using System.Reflection;
 using System.Reflection.Emit;
 
 namespace MimiTools.IL
 {
     public static class ILHandler
     {
-        public static unsafe Op[] ReadIL(byte[] raw_il)
+        public static int GetInstructionCount(this MethodBase method)
         {
-            fixed (byte* ptr = raw_il)
-                return ReadIL(ptr, raw_il.LongLength);
-        }
+            byte[] data = ILHelper.GetBody(method);
 
-        public static unsafe Op[] ReadIL(byte* il_ptr, long count)
-        {
-            List<Op> operations = new List<Op>();
-            void* end = il_ptr + count;
-            while (il_ptr < end)
+            int i = 0;
+            int ptr = 0;
+            while (ptr < data.Length)
             {
-                OpCode code = ILHelper.ReadOpCode(il_ptr);
-
-                il_ptr += code.Size;
-                byte[] operand = ReadOperand(il_ptr, code.OperandType);
-                il_ptr += operand.Length;
-
-                operations.Add(new Op(code, operand));
+                i++;
+                ptr += ILHelper.GetOpLength(data, ptr);
             }
 
-            return operations.ToArray();
+            return i;
         }
 
-        public static unsafe Op ReadOp(byte[] raw_il, int offset)
+        public static Op[] GetMethodIL(this MethodBase method)
         {
-            fixed (byte* b = raw_il)
-                return ReadOp(b + offset);
-        }
+            byte[] data = ILHelper.GetBody(method);
+            Op[] ops = new Op[method.GetInstructionCount()];
 
-        public static unsafe Op ReadOp(byte* il_ptr)
-        {
-            OpCode op = ILHelper.ReadOpCode(il_ptr);
-            il_ptr += op.Size;
-            return new Op(op, ReadOperand(il_ptr, op.OperandType));
-        }
+            int i = 0;
+            int ptr = 0;
+            while (ptr < data.Length)
+            {
+                ops[i++] = new Op(method, ptr);
+                ptr += ILHelper.GetOpLength(data, ptr);
+            }
 
-        private static unsafe byte[] ReadOperand(byte* ptr, OperandType type)
-        {
-            int size = ILHelper.GetOperandSize(type);
-            byte[] data;
-
-            fixed (byte* b = data = new byte[size])
-                for (int i = 0; i < size; i++)
-                    b[i] = ptr[i];
-
-            return data;
+            return ops;
         }
     }
 }

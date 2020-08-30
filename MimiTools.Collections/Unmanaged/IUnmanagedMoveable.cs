@@ -14,10 +14,15 @@
         unsafe void MassMoved(long offset_in_bytes);
 
         /// <summary>
-        /// Called when the item is moved within the collection
+        /// Called after the item is moved within the collection
         /// </summary>
-        /// <param name="before">The position it was at before moving</param>
-        /// <param name="after">The position it is at now</param>
-        unsafe void Moved(T* before, T* after);
+        /// <param name="src">The position it was at before moving</param>
+        unsafe void OnMoved(T* src);
+
+        /// <summary>
+        /// Called when the item is about to be moved within the collection
+        /// </summary>
+        /// <param name="before">The position it is being moved to</param>
+        unsafe void OnMoving(T* dst);
     }
 }

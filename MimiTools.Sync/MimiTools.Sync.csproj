@@ -6,10 +6,16 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../MimiTools.snk</AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MimiTools.Extensions\MimiTools.Extensions.csproj" />
+    <ProjectReference Include="..\MimiTools.Memory\MimiTools.Memory.csproj" />
   </ItemGroup>
 
 </Project>

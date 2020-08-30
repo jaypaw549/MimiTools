@@ -1,87 +1,67 @@
-﻿using System.Linq;
+﻿using MimiTools.Collections.Weak;
+using System;
+using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 namespace MimiTools.IL
 {
-    public unsafe struct Op
+    public readonly struct Op
     {
-        private readonly OpCode _op;
-        private fixed byte _operand[8];
-
-        internal Op(OpCode op, byte[] operand)
+        internal Op(MethodBase method, int offset)
         {
-            _op = op;
-            fixed (byte* b = operand)
-                for (int i = 0; i < operand.Length; i++)
-                    _operand[i] = b[i];
+            source = method;
+            this.offset = offset;
         }
 
-        public string Name => _op.Name;
-        public short OpCode => _op.Value;
-        public int OpCodeSize => _op.Size;
+        private readonly MethodBase source;
+        private readonly int offset;
 
-        public byte[] Operand
-        {
-            get
-            {
-                byte[] data = new byte[OperandSize];
-                WriteOperand(data, 0);
-                return data;
-            }
-        }
+        public OpCode EmitOpCode => ILHelper.GetEmitOpCode(ILHelper.GetBody(source), offset);
 
-        public int OperandSize => ILHelper.GetOperandSize(_op.OperandType);
-        public int Size => _op.Size + ILHelper.GetOperandSize(_op.OperandType);
+        public MethodBase Method => source;
 
-        public byte[] AsByteArray()
-        {
-            byte[] data = new byte[Size];
-            WriteBytes(data, 0);
-            return data;
-        }
+        public int Offset => offset;
 
-        public T ReadOperand<T>() where T : unmanaged
-        {
-            fixed (byte* ptr = _operand)
-                return ILHelper.ReadILValue<T>(ptr);
-        }
+        public object Operand => ILHelper.GetOperandValue(source, offset, true);
+
+        public int Size => ILHelper.GetOpLength(ILHelper.GetBody(source), offset);
+
+        public OpData ToData()
+            => new OpData(EmitOpCode, ILHelper.GetOperandValue(source, offset, false));
 
         public override string ToString()
-            => $"{Name}{string.Join(string.Empty, Operand.Select(b => " " + b.ToString("X2")))}";
-
-        public int WriteBytes(byte[] array, int index)
         {
-            int before = index;
-            index += WriteOpCode(array, index);
-            index += WriteOperand(array, index);
-            return index - before;
+            string operand = Operand?.ToString();
+            if (operand != null)
+                return $"IL_{offset.ToString("X4")}: {EmitOpCode.Name} {operand}";
+            return $"IL_{offset.ToString("X4")}: {EmitOpCode.Name}";
+        }
+    }
+
+    public readonly struct OpData
+    {
+        internal OpData(OpCode op, object operand)
+        {
+            this.op = op;
+            this.operand = operand;
         }
 
-        public int WriteOpCode(byte[] array, int index)
+        private readonly OpCode op;
+        private readonly object operand;
+
+        public OpCode EmitOpCode => op;
+        public object Operand => operand;
+
+        public int Size => ILHelper.GetOpLength(op, operand);
+
+        public override string ToString()
         {
-            int before = index;
-            short val = _op.Value;
-
-            fixed (byte* a = array)
-                for (int i = _op.Size - 1; i >= 0; i--)
-                    a[index++] = (byte)(val >> (i * 8));
-
-            return index - before;
-        }
-
-        public int WriteOperand(byte[] array, int index)
-        {
-            int before = index;
-            short val = _op.Value;
-
-            fixed (byte* a = array)
-            {
-                int size = ILHelper.GetOperandSize(_op.OperandType);
-                for (int i = 0; i < size; i++)
-                    a[index++] = _operand[i];
-            }
-
-            return index - before;
+            string operand = this.operand?.ToString();
+            if (operand != null)
+                return $"{EmitOpCode.Name} {operand}";
+            return op.Name;
         }
     }
 }

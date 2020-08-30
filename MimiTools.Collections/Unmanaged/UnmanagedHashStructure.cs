@@ -2,14 +2,16 @@
 
 namespace MimiTools.Collections.Unmanaged
 {
-    public unsafe struct UnmanagedHashStructure<T> where T : unmanaged, IUnmanagedHashItem<T>
+    public unsafe struct UnmanagedHashStructure<T> : IDisposable where T : unmanaged, IUnmanagedHashable<T>
     {
         private T** _buckets;
         private int _count;
 
-        public int Buckets { get => _count; }
+        public readonly int Buckets => _count;
 
-        public bool Add(T* target)
+        public readonly long MemorySize => _count * sizeof(T**);
+
+        public readonly bool Add(T* target)
         {
             if (_buckets == null)
                 return false;
@@ -24,7 +26,7 @@ namespace MimiTools.Collections.Unmanaged
             return true;
         }
 
-        public int AddAll(T* target, int count)
+        public readonly int AddAll(T* target, int count)
         {
             int success = 0;
             for (int i = 0; i < count; i++)
@@ -50,7 +52,7 @@ namespace MimiTools.Collections.Unmanaged
             return true;
         }
 
-        public T* GetBucket(int hash)
+        public readonly T* GetBucket(int hash)
         {
             if (_buckets == null)
                 return null;
@@ -70,7 +72,7 @@ namespace MimiTools.Collections.Unmanaged
             return true;
         }
 
-        public bool Remove(T* target, T* prev = null)
+        public readonly bool Remove(T* target, T* prev = null)
         {
             if (_buckets == null)
                 return false;
@@ -98,7 +100,7 @@ namespace MimiTools.Collections.Unmanaged
             return false;
         }
 
-        public int RemoveAll(T* target, int count)
+        public readonly int RemoveAll(T* target, int count)
         {
             int success = 0;
             for (int i = 0; i < count; i++)
@@ -108,7 +110,10 @@ namespace MimiTools.Collections.Unmanaged
             return success;
         }
 
-        private int GetIndex(int hash)
+        void IDisposable.Dispose()
+            => Release();
+
+        private readonly int GetIndex(int hash)
             => (hash & 0x7FFFFFFF) % _count;
     }
 }
