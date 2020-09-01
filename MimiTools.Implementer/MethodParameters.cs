@@ -4,7 +4,7 @@ using System.Text;
 
 namespace MimiTools.Implementer
 {
-    public readonly struct ParametersData
+    public readonly struct MethodParameters
     {
 
 
@@ -16,7 +16,7 @@ namespace MimiTools.Implementer
         internal readonly Type[][] m_requiredModifiers;
         internal readonly Type[][] m_optionalModifiers;
 
-        public ParametersData(Type[] parameterTypes, Type[][] requiredModifiers, Type[][] optionalModifiers)
+        public MethodParameters(Type[] parameterTypes, Type[][] requiredModifiers, Type[][] optionalModifiers)
         {
             m_parameterTypes = parameterTypes ?? throw new ArgumentNullException(nameof(parameterTypes));
             m_requiredModifiers = requiredModifiers ?? throw new ArgumentNullException(nameof(requiredModifiers));

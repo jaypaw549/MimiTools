@@ -5,7 +5,7 @@ using System.Reflection.Emit;
 
 namespace MimiTools.Implementer
 {
-    public readonly ref struct FieldSetter
+    public readonly ref struct FieldInitConfig
     {
         private readonly UnsafeReference<FieldDefinition> m_def;
         private readonly FieldBuilder m_field;
@@ -15,9 +15,9 @@ namespace MimiTools.Implementer
 
         public ref readonly FieldDefinition Field => ref m_def.Reference;
 
-        public ref readonly ParametersData Parameters => ref m_toolkit.Reference.ParametersData;
+        public ref readonly MethodParameters Parameters => ref m_toolkit.Reference.ParametersData;
 
-        internal FieldSetter(ref FieldDefinition def, FieldBuilder field, ILGenerator il, ref ImplToolkit toolkit, out bool used)
+        internal FieldInitConfig(ref FieldDefinition def, FieldBuilder field, ILGenerator il, ref ImplToolkit toolkit, out bool used)
         {
             used = false;
             m_def = UnsafeReference.FromReference(def);
@@ -47,11 +47,11 @@ namespace MimiTools.Implementer
             m_il.Emit(OpCodes.Stfld, m_field);
         }
 
-        public MethodBuilder SetByMethod()
+        public MethodBuilder SetByCustomMethod()
         {
             CheckoutOperation();
 
-            ref ParametersData data = ref m_toolkit.Reference.ParametersData;
+            ref MethodParameters data = ref m_toolkit.Reference.ParametersData;
             MethodBuilder field_setter = m_toolkit.Reference.Type.DefineMethod(
                 $"Init_{Field.Name}", 
                 MethodAttributes.Private | MethodAttributes.Static, 

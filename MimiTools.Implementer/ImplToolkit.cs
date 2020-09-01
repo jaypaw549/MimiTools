@@ -20,9 +20,9 @@ namespace MimiTools.Implementer
 
         internal ModuleBuilder Module;
 
-        internal ParametersData ParametersData;
+        internal MethodParameters ParametersData;
 
-        internal IImplProvider Provider;
+        internal IImplementationProvider Provider;
 
         internal TypeBuilder Type;
     }

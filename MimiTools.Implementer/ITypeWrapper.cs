@@ -4,7 +4,7 @@ using System.Text;
 
 namespace MimiTools.Implementer
 {
-    public interface IWrapper<T>
+    public interface ITypeWrapper<T>
     {
          T Target { get; }
     }

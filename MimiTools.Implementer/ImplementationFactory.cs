@@ -9,25 +9,19 @@ using System.Threading;
 
 namespace MimiTools.Implementer
 {
-    public static class ImplFactory
+    public static class ImplementationFactory
     {
         private static int factory_id = 0;
 
         private const string CreateInstanceMethod = "CreateInstance";
 
-        public static TDelegate CreateFactory<TDelegate>(Type base_type, IImplProvider impl_provider) where TDelegate : Delegate
+        public static TDelegate CreateFactory<TDelegate>(IImplementationProvider impl_provider) where TDelegate : Delegate
         {
-            if (!typeof(TDelegate).GetMethod("Invoke").ReturnType.IsAssignableFrom(base_type))
-                throw new InvalidOperationException("Cannot create a factory of the specified delegate!");
-
-            if (!base_type.IsInterface)
-                throw new ArgumentOutOfRangeException(nameof(base_type), "Can only implement interfaces");
-
-            SetupToolkit(base_type, typeof(TDelegate), impl_provider, out ImplToolkit toolkit);
+            SetupToolkit(typeof(TDelegate), impl_provider, out ImplToolkit toolkit);
             BuildConstructor(ref toolkit);
             BuildMethods(ref toolkit);
 
-            return (TDelegate) toolkit.Type.CreateTypeInfo().GetMethod(CreateInstanceMethod).CreateDelegate(toolkit.FactoryDelegateType);
+            return (TDelegate) toolkit.Type.CreateTypeInfo().GetMethod(CreateInstanceMethod, BindingFlags.Public | BindingFlags.Static).CreateDelegate(toolkit.FactoryDelegateType);
         }
 
         private static void BuildConstructor(ref ImplToolkit toolkit)
@@ -52,7 +46,7 @@ namespace MimiTools.Implementer
                 ref FieldDefinition def = ref field_defs[i];
                 toolkit.Fields[i] = toolkit.Type.DefineField(def.Name, def.Type, def.RequiredCustomModifiers, def.OptionalCustomModifiers, def.FieldAttributes);
 
-                FieldSetter setter = new FieldSetter(ref Unsafe.AsRef(in def), toolkit.Fields[i], il, ref toolkit, out bool isSet);
+                FieldInitConfig setter = new FieldInitConfig(ref Unsafe.AsRef(in def), toolkit.Fields[i], il, ref toolkit, out bool isSet);
                 toolkit.Provider.SetField(toolkit.BaseType, in setter);
 
                 if (!isSet)
@@ -87,14 +81,13 @@ namespace MimiTools.Implementer
             toolkit.Methods = new MethodBuilder[i_methods.Length];
             for(int i = 0; i < i_methods.Length; i++)
             {
-                ExtractParameters(i_methods[i], out ParametersData data);
+                ExtractMethodSignature(i_methods[i], out MethodParameters data, out Type return_type);
 
                 toolkit.Methods[i] = toolkit.Type.DefineMethod(
                     i_methods[i].Name,
                     i_methods[i].Attributes & ~MethodAttributes.Abstract,
                     CallingConventions.HasThis);
 
-                Type return_type = i_methods[i].ReturnType;
                 PrepareGenericParameters(ref toolkit, ref data, ref return_type, i_methods[i], toolkit.Methods[i]);
 
                 toolkit.Methods[i].SetSignature(
@@ -141,10 +134,10 @@ namespace MimiTools.Implementer
                 ExtractMethods(interfaces[i], found_methods);
         }
 
-        private static void ExtractParameters(Type t_delegate, out ParametersData data)
-            => ExtractParameters(t_delegate.GetMethod("Invoke"), out data);
+        private static void ExtractDelegateSignature(Type t_delegate, out MethodParameters data, out Type return_type)
+            => ExtractMethodSignature(t_delegate.GetMethod("Invoke"), out data, out return_type);
 
-        private static void ExtractParameters(MethodInfo method, out ParametersData data)
+        private static void ExtractMethodSignature(MethodInfo method, out MethodParameters data, out Type return_type)
         {
             ParameterInfo[] info = method.GetParameters();
 
@@ -159,10 +152,11 @@ namespace MimiTools.Implementer
                 optional_modifiers[i] = info[i].GetOptionalCustomModifiers();
             }
 
-            data = new ParametersData(parameter_types, required_modifiers, optional_modifiers);
+            data = new MethodParameters(parameter_types, required_modifiers, optional_modifiers);
+            return_type = method.ReturnType;
         }
 
-        private static void PrepareGenericParameters(ref ImplToolkit toolkit, ref ParametersData data, ref Type returnType, MethodInfo methodInfo, MethodBuilder methodBuilder)
+        private static void PrepareGenericParameters(ref ImplToolkit toolkit, ref MethodParameters data, ref Type returnType, MethodInfo methodInfo, MethodBuilder methodBuilder)
         {
             Type[] generic_args = methodInfo.GetGenericArguments();
             if (generic_args.Length == 0)
@@ -238,17 +232,22 @@ namespace MimiTools.Implementer
             return changed;
         }
 
-        private static void SetupToolkit(Type base_type, Type t_delegate, IImplProvider impl_provider, out ImplToolkit toolkit)
+        private static void SetupToolkit(Type t_delegate, IImplementationProvider impl_provider, out ImplToolkit toolkit)
         {
-            toolkit = new ImplToolkit();
+            toolkit = new ImplToolkit
+            {
+                FactoryDelegateType = t_delegate,
+                Provider = impl_provider
+            };
+
+            ExtractDelegateSignature(t_delegate, out toolkit.ParametersData, out toolkit.BaseType);
+
+            if (!toolkit.BaseType.IsInterface)
+                throw new ArgumentOutOfRangeException("TDelegate", "This only supports delegates that return interfaces!");
+
             toolkit.Assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName($"Factory-{Interlocked.Increment(ref factory_id)}.dll"), AssemblyBuilderAccess.RunAndCollect);
-            toolkit.BaseType = base_type;
-            toolkit.FactoryDelegateType = t_delegate;
-            toolkit.Provider = impl_provider;
             toolkit.Module = toolkit.Assembly.DefineDynamicModule("Module");
             toolkit.Type = toolkit.Module.DefineType("Impl", TypeAttributes.Public | TypeAttributes.Sealed);
-
-            ExtractParameters(t_delegate, out toolkit.ParametersData);
         }
     }
 }
