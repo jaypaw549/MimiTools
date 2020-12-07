@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Reflection.Emit.ILGeneration" Version="4.7.0" />
-    <PackageReference Include="System.Reflection.Metadata" Version="1.8.1" />
+    <PackageReference Include="System.Reflection.Metadata" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
