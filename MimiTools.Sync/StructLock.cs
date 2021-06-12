@@ -23,7 +23,7 @@ namespace MimiTools.Sync
 
         public bool TryEnter()
         {
-            return Interlocked.Exchange(ref _lock, 1) == 1;
+            return Interlocked.Exchange(ref _lock, 1) == 0;
         }
     }
 }
