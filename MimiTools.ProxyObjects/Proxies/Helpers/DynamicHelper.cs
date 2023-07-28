@@ -63,7 +63,7 @@ namespace MimiTools.ProxyObjects.Proxies.Helpers
                     il.Emit(OpCodes.Unbox, type);
                     il.Emit(OpCodes.Ldobj, type);
                 }
-                else
+                else if (type != typeof(object))
                     il.Emit(OpCodes.Castclass, type);
 
                 if (ref_type)

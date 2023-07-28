@@ -49,7 +49,7 @@ namespace MimiTools.ProxyObjects.Proxies
         public T AsProxy<T>() where T : class
             => _factory.FromContract<T>(this);
 
-        public object AsProxy<T>(Type t)
+        public object AsProxy(Type t)
             => _factory.FromContract(t, this);
 
         public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
