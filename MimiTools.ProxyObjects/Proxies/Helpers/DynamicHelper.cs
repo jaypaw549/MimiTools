@@ -1,5 +1,4 @@
-﻿using MimiTools.Collections.Weak;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -63,7 +62,7 @@ namespace MimiTools.ProxyObjects.Proxies.Helpers
                     il.Emit(OpCodes.Unbox, type);
                     il.Emit(OpCodes.Ldobj, type);
                 }
-                else
+                else if (type != typeof(object))
                     il.Emit(OpCodes.Castclass, type);
 
                 if (ref_type)
