@@ -9,12 +9,9 @@ namespace MimiTools.ProxyObjects
 {
     internal static class ProxyTypeCreator
     {
-        //internal const string CreateNew = "CreateNew";
-        internal const string FromContract = "FromContract";
-
-        private const string ContractParameter = "contract";
-        //private const string HandlerParameter = "handler";
-        //private const string IDParameter = "id";
+        internal const string ExtractMethod = "GetReference";
+        internal const string ReferenceField = "reference";
+        internal const string WrapMethod = "FromReference";
 
         private const BindingFlags _flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
@@ -47,10 +44,10 @@ namespace MimiTools.ProxyObjects
                 "Proxy" + type.Name,
                 TypeAttributes.Public | TypeAttributes.Serializable | TypeAttributes.Class);
 
-            FieldBuilder fieldContract = typeBuilder.DefineField("_contract", typeof(IProxyContract), FieldAttributes.Private | FieldAttributes.InitOnly);
+            FieldBuilder fieldReference = typeBuilder.DefineField(ReferenceField, typeof(ProxyReference), FieldAttributes.Private | FieldAttributes.InitOnly);
 
-            //CreateNewDelegate(type, typeBuilder, ImplementNewConstructor(type, typeBuilder, fieldContract));
-            CreateWrapperDelegate(type, typeBuilder, ImplementWrapperConstructor(type, typeBuilder, fieldContract));
+            CreateExtractorDelegate(typeBuilder, fieldReference);
+            CreateWrapperDelegate(type, typeBuilder, ImplementWrapperConstructor(type, typeBuilder, fieldReference));
 
             if (type.IsInterface)
                 typeBuilder.AddInterfaceImplementation(type);
@@ -63,35 +60,34 @@ namespace MimiTools.ProxyObjects
 
             HashSet<MethodInfo> implemented = new HashSet<MethodInfo>();
 
-            Implement(type, typeBuilder, fieldContract, virt, implemented);
+            Implement(type, typeBuilder, fieldReference, virt, implemented);
 
             if (type.IsInterface)
                 foreach (Type i in type.GetInterfaces())
-                    Implement(i, typeBuilder, fieldContract, virt, implemented);
+                    Implement(i, typeBuilder, fieldReference, virt, implemented);
 
             return typeBuilder.CreateTypeInfo();
         }
 
-        //private static MethodBuilder CreateNewDelegate(Type type, TypeBuilder typeBuilder, ConstructorBuilder constructorBuilder)
-        //{
-        //    MethodBuilder methodBuilder = typeBuilder.DefineMethod(CreateNew, MethodAttributes.Public | MethodAttributes.Static,
-        //        type, new Type[] { typeof(IProxyHandler), typeof(long) });
+        private static MethodBuilder CreateExtractorDelegate(TypeBuilder typeBuilder, FieldBuilder fieldReference)
+        {
+            MethodBuilder methodBuilder = typeBuilder.DefineMethod(ExtractMethod, MethodAttributes.Public | MethodAttributes.Static,
+                typeof(ProxyReference), new Type[] { typeof(object) });
 
-        //    ILGenerator generator = methodBuilder.GetILGenerator();
+            ILGenerator generator = methodBuilder.GetILGenerator();
 
-        //    generator.Emit(OpCodes.Ldarg_0);
-        //    generator.Emit(OpCodes.Ldarg_1);
-        //    generator.Emit(OpCodes.Newobj, constructorBuilder);
-        //    generator.Emit(OpCodes.Castclass, type);
-        //    generator.Emit(OpCodes.Ret);
+            generator.Emit(OpCodes.Ldarg_0);
+            generator.Emit(OpCodes.Castclass, typeBuilder);
+            generator.Emit(OpCodes.Ldfld, fieldReference);
+            generator.Emit(OpCodes.Ret);
 
-        //    return methodBuilder;
-        //}
+            return methodBuilder;
+        }
 
         private static MethodBuilder CreateWrapperDelegate(Type type, TypeBuilder typeBuilder, ConstructorBuilder constructorBuilder)
         {
-            MethodBuilder methodBuilder = typeBuilder.DefineMethod(FromContract, MethodAttributes.Public | MethodAttributes.Static,
-                type, new Type[] { typeof(IProxyContract) });
+            MethodBuilder methodBuilder = typeBuilder.DefineMethod(WrapMethod, MethodAttributes.Public | MethodAttributes.Static,
+                type, new Type[] { typeof(ProxyReference) });
 
             ILGenerator generator = methodBuilder.GetILGenerator();
 
@@ -118,7 +114,7 @@ namespace MimiTools.ProxyObjects
                 generator.Emit(OpCodes.Castclass, t);
         }
 
-        private static void Implement(Type type, TypeBuilder typeBuilder, FieldBuilder fieldContract, bool virt, HashSet<MethodInfo> implemented)
+        private static void Implement(Type type, TypeBuilder typeBuilder, FieldBuilder fieldRef, bool virt, HashSet<MethodInfo> implemented)
         {
             //Special cases
             foreach (PropertyInfo pi in type.GetProperties(_flags))
@@ -126,13 +122,13 @@ namespace MimiTools.ProxyObjects
                 if (pi.GetMethod != null)
                 {
                     if (implemented.Add(pi.GetMethod))
-                        ImplementMethod(type, typeBuilder, fieldContract, pi.GetMethod, virt);
+                        ImplementMethod(type, typeBuilder, fieldRef, pi.GetMethod, virt);
                 }
 
                 if (pi.SetMethod != null)
                 {
                     if (implemented.Add(pi.SetMethod))
-                        ImplementMethod(type, typeBuilder, fieldContract, pi.SetMethod, virt);
+                        ImplementMethod(type, typeBuilder, fieldRef, pi.SetMethod, virt);
                 }
             }
 
@@ -142,27 +138,27 @@ namespace MimiTools.ProxyObjects
                 if (ei.AddMethod != null)
                 {
                     if (implemented.Add(ei.AddMethod))
-                        ImplementMethod(type, typeBuilder, fieldContract, ei.AddMethod, virt);
+                        ImplementMethod(type, typeBuilder, fieldRef, ei.AddMethod, virt);
                 }
 
                 if (ei.RemoveMethod != null)
                 {
                     if (implemented.Add(ei.RemoveMethod))
-                        ImplementMethod(type, typeBuilder, fieldContract, ei.RemoveMethod, virt);
+                        ImplementMethod(type, typeBuilder, fieldRef, ei.RemoveMethod, virt);
                 }
 
                 if (ei.RaiseMethod != null)
                     if (implemented.Add(ei.RaiseMethod))
-                        ImplementMethod(type, typeBuilder, fieldContract, ei.RaiseMethod, virt);
+                        ImplementMethod(type, typeBuilder, fieldRef, ei.RaiseMethod, virt);
             }
 
             //General cases
             foreach (MethodInfo mi in type.GetMethods(_flags))
                 if (implemented.Add(mi))
-                    ImplementMethod(type, typeBuilder, fieldContract, mi, virt);
+                    ImplementMethod(type, typeBuilder, fieldRef, mi, virt);
         }
 
-        private static MethodBuilder ImplementMethod(Type type, TypeBuilder typeBuilder, FieldBuilder fieldContract, MethodInfo mi, bool virt)
+        private static MethodBuilder ImplementMethod(Type type, TypeBuilder typeBuilder, FieldBuilder fieldRef, MethodInfo mi, bool virt)
         {
             if (!mi.IsPublic && !mi.IsFamily && !mi.IsFamilyOrAssembly)
             {
@@ -180,16 +176,16 @@ namespace MimiTools.ProxyObjects
             MethodBuilder methodBuilder;
 
             if (mi.IsGenericMethodDefinition)
-                methodBuilder = ImplementMethodGeneric(type, typeBuilder, fieldContract, mi);
+                methodBuilder = ImplementMethodGeneric(type, typeBuilder, fieldRef, mi);
             else
-                methodBuilder = ImplementMethodStandard(type, typeBuilder, fieldContract, mi);
+                methodBuilder = ImplementMethodStandard(type, typeBuilder, fieldRef, mi);
 
             typeBuilder.DefineMethodOverride(methodBuilder, mi);
 
             return methodBuilder;
         }
 
-        private static void ImplementMethodCode(Type type, MethodBuilder methodBuilder, FieldBuilder fieldContract, MethodInfo mi, GenericTypeParameterBuilder[] gen_parameters, Type[] parameters, Type ret_type)
+        private static void ImplementMethodCode(Type type, MethodBuilder methodBuilder, FieldBuilder fieldRef, MethodInfo mi, GenericTypeParameterBuilder[] gen_parameters, Type[] parameters, Type ret_type)
         {
             methodBuilder.SetSignature(
                 ret_type,
@@ -201,15 +197,14 @@ namespace MimiTools.ProxyObjects
 
             ILGenerator generator = methodBuilder.GetILGenerator();
 
-            //Load Instance object
-            generator.Emit(OpCodes.Ldarg_0);
-
             //Load contract object
-            generator.Emit(OpCodes.Ldfld, fieldContract);
-
-            //Load contract reference
             generator.Emit(OpCodes.Ldarg_0);
-            generator.Emit(OpCodes.Ldflda, fieldContract);
+            generator.Emit(OpCodes.Ldfld, fieldRef);
+            generator.Emit(OpCodes.Call, ProxyHelper.ContractPropertyGetMethod);
+
+            //Load reference address
+            generator.Emit(OpCodes.Ldarg_0);
+            generator.Emit(OpCodes.Ldflda, fieldRef);
 
             //First argument, The method
             if (gen_parameters != null)
@@ -286,7 +281,7 @@ namespace MimiTools.ProxyObjects
             generator.Emit(OpCodes.Ret);
         }
 
-        private static MethodBuilder ImplementMethodGeneric(Type type, TypeBuilder typeBuilder, FieldBuilder fieldContract, MethodInfo mi)
+        private static MethodBuilder ImplementMethodGeneric(Type type, TypeBuilder typeBuilder, FieldBuilder fieldRef, MethodInfo mi)
         {
             Type return_type = mi.ReturnType;
             Type[] parameters = mi.GetParameters().Select(p => p.ParameterType).ToArray();
@@ -323,12 +318,12 @@ namespace MimiTools.ProxyObjects
             RecursiveReplaceAll(parameters, map);
             RecursiveReplace(ref return_type, map);
 
-            ImplementMethodCode(type, methodBuilder, fieldContract, mi, genericBuilders, parameters, return_type);
+            ImplementMethodCode(type, methodBuilder, fieldRef, mi, genericBuilders, parameters, return_type);
 
             return methodBuilder;
         }
 
-        private static MethodBuilder ImplementMethodStandard(Type type, TypeBuilder typeBuilder, FieldBuilder fieldContract, MethodInfo mi)
+        private static MethodBuilder ImplementMethodStandard(Type type, TypeBuilder typeBuilder, FieldBuilder fieldRef, MethodInfo mi)
         {
             Type[] parameters = Array.ConvertAll(mi.GetParameters(), p => p.ParameterType);
 
@@ -338,74 +333,16 @@ namespace MimiTools.ProxyObjects
                 mi.CallingConvention
                 );
 
-            ImplementMethodCode(type, methodBuilder, fieldContract, mi, null, parameters, mi.ReturnType);
+            ImplementMethodCode(type, methodBuilder, fieldRef, mi, null, parameters, mi.ReturnType);
 
             return methodBuilder;
         }
 
-        //private static ConstructorBuilder ImplementNewConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder contractField)
-        //{
-        //    ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(
-        //        MethodAttributes.Public,
-        //        CallingConventions.HasThis,
-        //        new Type[] { typeof(IProxyHandler), typeof(long) }
-        //        );
-
-        //    ILGenerator generator = constructorBuilder.GetILGenerator();
-
-        //    if (type.IsClass)
-        //    {
-        //        ConstructorInfo constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, Type.EmptyTypes, null);
-
-        //        if (constructor == null)
-        //            throw new InvalidOperationException("No default constructor detected!");
-
-        //        if (!constructor.IsPublic && !constructor.IsFamily && !constructor.IsFamilyOrAssembly)
-        //            throw new InvalidOperationException("Default constructor is inaccessible!");
-
-        //        generator.Emit(OpCodes.Ldarg_0);
-        //        generator.Emit(OpCodes.Call, constructor);
-        //    }
-
-        //    Label if_null = generator.DefineLabel();
-        //    Label if_no_contract = generator.DefineLabel();
-
-        //    generator.Emit(OpCodes.Ldarg_1);
-        //    generator.Emit(OpCodes.Brfalse_S, if_null);
-
-        //    generator.Emit(OpCodes.Ldarg_0);
-        //    generator.Emit(OpCodes.Ldarg_1);
-        //    generator.Emit(OpCodes.Ldarg_2);
-        //    generator.Emit(OpCodes.Ldtoken, type);
-        //    generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
-        //    generator.Emit(OpCodes.Callvirt, ProxyHelper.CreateContractMethod);
-
-        //    generator.Emit(OpCodes.Dup);
-        //    generator.Emit(OpCodes.Brfalse_S, if_no_contract);
-
-        //    generator.Emit(OpCodes.Stfld, contractField);
-        //    generator.Emit(OpCodes.Ret);
-
-        //    generator.MarkLabel(if_no_contract);
-        //    generator.Emit(OpCodes.Pop);
-        //    generator.Emit(OpCodes.Ldstr, "Handler did not provide a contract!");
-        //    generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
-        //    generator.Emit(OpCodes.Throw);
-
-        //    generator.MarkLabel(if_null);
-        //    generator.Emit(OpCodes.Ldstr, HandlerParameter);
-        //    generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
-        //    generator.Emit(OpCodes.Throw);
-        //    generator.Emit(OpCodes.Ret);
-
-        //    return constructorBuilder;
-        //}
-
-        private static ConstructorBuilder ImplementWrapperConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder contractField)
+        private static ConstructorBuilder ImplementWrapperConstructor(Type type, TypeBuilder typeBuilder, FieldBuilder fieldRef)
         {
-            ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.HasThis, new Type[] { typeof(IProxyContract) });
+            ConstructorBuilder constructorBuilder = typeBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.HasThis, new Type[] { typeof(ProxyReference) });
             ILGenerator generator = constructorBuilder.GetILGenerator();
-            constructorBuilder.DefineParameter(0, ParameterAttributes.None, ContractParameter);
+            constructorBuilder.DefineParameter(0, ParameterAttributes.None, ReferenceField);
 
             if (type.IsClass)
             {
@@ -428,23 +365,23 @@ namespace MimiTools.ProxyObjects
             generator.Emit(OpCodes.Brfalse_S, if_null);
 
             generator.Emit(OpCodes.Ldarg_1);
-            generator.Emit(OpCodes.Ldtoken, type);
-            generator.Emit(OpCodes.Call, ProxyHelper.TypeOfOperation);
+            generator.Emit(OpCodes.Call, ProxyHelper.ContractPropertyGetMethod);
+            generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Callvirt, ProxyHelper.VerifyMethod);
             generator.Emit(OpCodes.Brfalse_S, if_not_verified);
 
             generator.Emit(OpCodes.Ldarg_0);
             generator.Emit(OpCodes.Ldarg_1);
-            generator.Emit(OpCodes.Stfld, contractField);
+            generator.Emit(OpCodes.Stfld, fieldRef);
             generator.Emit(OpCodes.Ret);
 
             generator.MarkLabel(if_not_verified);
-            generator.Emit(OpCodes.Ldstr, $"This proxy type is not valid for this contract!");
+            generator.Emit(OpCodes.Ldstr, $"This proxy reference has an invalid contract!");
             generator.Emit(OpCodes.Newobj, ProxyHelper.InvalidOperationException);
             generator.Emit(OpCodes.Throw);
 
             generator.MarkLabel(if_null);
-            generator.Emit(OpCodes.Ldstr, ContractParameter);
+            generator.Emit(OpCodes.Ldstr, ReferenceField);
             generator.Emit(OpCodes.Newobj, ProxyHelper.ArgumentNullException);
             generator.Emit(OpCodes.Throw);
 

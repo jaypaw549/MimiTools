@@ -1,7 +1,7 @@
-﻿using MimiTools.Collections.Weak;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace MimiTools.ProxyObjects
 {
@@ -10,25 +10,32 @@ namespace MimiTools.ProxyObjects
         public static ProxyFactory AbstractOnly { get; } = new ProxyFactory(false);
         public static ProxyFactory OverrideVirtual { get; } = new ProxyFactory(true);
 
+        public static ProxyReference GetReferenceFromProxy(object proxy)
+        {
+            lock (UNWRAPPERS)
+                if (UNWRAPPERS.TryGetValue(proxy.GetType(), out Func<object, ProxyReference> extracter))
+                    return extracter(proxy);
+
+            return null;
+        }
+
+        private static readonly ConditionalWeakTable<Type, Func<object, ProxyReference>> UNWRAPPERS = 
+            new ConditionalWeakTable<Type, Func<object, ProxyReference>>();
+
         public ProxyFactory(bool override_virtual)
         {
             _override_virtual = override_virtual;
         }
 
         private readonly Dictionary<Type, FactoryContainer> _containers = new Dictionary<Type, FactoryContainer>();
+
         private readonly bool _override_virtual;
 
-        public object FromContract(Type t, IProxyContract contract)
-            => GetContainer(t).FromContract(contract);
+        public object FromReference(Type t, ProxyReference obj)
+            => GetContainer(t).FromReference(obj);
 
-        public T FromContract<T>(IProxyContract contract) where T : class
-            => (T)GetContainer(typeof(T)).FromContract(contract);
-
-        //public object FromHandler(Type t, IProxyHandler handler, long id)
-        //    => GetContainer(t).CreateNew(handler, id);
-
-        //public T FromHandler<T>(IProxyHandler handler, long id) where T : class
-        //    => (T)GetContainer(typeof(T)).CreateNew(handler, id);
+        public T FromReference<T>(ProxyReference obj) where T : class
+            => (T)GetContainer(typeof(T)).FromReference(obj);
 
         private FactoryContainer GetContainer(Type t)
         {
@@ -46,31 +53,30 @@ namespace MimiTools.ProxyObjects
             {
                 TypeInfo impl = ProxyTypeCreator.CreateImplementation(t, override_virtual);
 
-                //CreateNew = CreateDelegate<Func<IProxyHandler, long, object>>(
-                //    impl.GetMethod(
-                //        ProxyTypeCreator.CreateNew,
-                //        BindingFlags.Static | BindingFlags.Public,
-                //        null,
-                //        new Type[] { typeof(IProxyHandler), typeof(long) },
-                //        null
-                //    )
-                //);
-
-                FromContract = CreateDelegate<Func<IProxyContract, object>>(
+                Func<object, ProxyReference> extracter = CreateDelegate<Func<object, ProxyReference>>(
                     impl.GetMethod(
-                        ProxyTypeCreator.FromContract,
+                        ProxyTypeCreator.ExtractMethod,
                         BindingFlags.Static | BindingFlags.Public,
                         null,
-                        new Type[] { typeof(IProxyContract) },
+                        new Type[] { typeof(object) },
+                        null
+                    ));
+
+                FromReference = CreateDelegate<Func<ProxyReference, object>>(
+                    impl.GetMethod(
+                        ProxyTypeCreator.WrapMethod,
+                        BindingFlags.Static | BindingFlags.Public,
+                        null,
+                        new Type[] { typeof(ProxyReference) },
                         null
                     )
                 );
 
-
+                lock (UNWRAPPERS)
+                    UNWRAPPERS.Add(impl, extracter);
             }
 
-            //internal readonly Func<IProxyHandler, long, object> CreateNew;
-            internal readonly Func<IProxyContract, object> FromContract;
+            internal readonly Func<ProxyReference, object> FromReference;
         }
 
         private static T CreateDelegate<T>(MethodInfo mi) where T : Delegate

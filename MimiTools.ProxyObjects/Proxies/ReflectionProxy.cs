@@ -5,30 +5,37 @@ namespace MimiTools.ProxyObjects.Proxies
 {
     public static class ReflectionProxy
     {
-        public static object Create(Type t, object obj)
-            => ProxyFactory.AbstractOnly.FromContract(t, new ReflectionContract(t));
+        public static object CreateProxy(Type t, object obj)
+            => ProxyFactory.AbstractOnly.FromReference(t, new ReflectionReference(t));
 
-        public static T Create<T>(T obj) where T : class
-            => ProxyFactory.AbstractOnly.FromContract<T>(new ReflectionContract(obj));
+        public static T CreateProxy<T>(T obj) where T : class
+            => ProxyFactory.AbstractOnly.FromReference<T>(new ReflectionReference(obj));
+
+        private static readonly ReflectionContract _contract = new ReflectionContract();
 
         private class ReflectionContract : IProxyContract
         {
-            internal ReflectionContract(object instance)
-            {
-                _instance = instance;
-            }
-
-            private readonly object _instance;
-
-            public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
-                => method.Invoke(_instance, args);
-
-            public void Release()
+            internal ReflectionContract()
             {
             }
 
-            public bool Verify(Type t)
-                => t?.IsInstanceOfType(_instance) ?? false;
+            public object Invoke(ref ProxyReference obj, MethodInfo method, object[] args)
+            {
+                if (obj is ReflectionReference verified_obj)
+                    return method.Invoke(verified_obj.Target, args);
+
+                throw new InvalidOperationException($"{nameof(obj)} is not a valid reference for this contract!");
+            }
+
+            public void Release(ProxyReference obj) { }
+
+            public bool Verify(ProxyReference obj)
+                => ReferenceEquals(this, obj.Contract);
+        }
+
+        private class ReflectionReference(object obj) : ProxyReference(_contract)
+        {
+            internal readonly object Target = obj;
         }
     }
 }

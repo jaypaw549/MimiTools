@@ -1,65 +1,46 @@
 ﻿using MimiTools.ProxyObjects.Proxies.Helpers;
 using System;
+using System.Diagnostics.Contracts;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace MimiTools.ProxyObjects.Proxies
 {
     public static class DynamicProxy
     {
-        /// <summary>
-        /// Creates a transparent proxy.
-        /// </summary>
-        /// <typeparam name="T">The interface type to create a proxy of</typeparam>
-        /// <param name="obj">The object to create a proxy of</param>
-        /// <param name="perms">The permissions to pass to the proxy object</param>
-        /// <returns>A proxy object representing of the interfaces on the object.</returns>
-        public static T Create<T>(T obj) where T : class
-            => ProxyFactory.AbstractOnly.FromContract<T>(new DynamicContract(new DynamicHelper(), obj));
+        public static T CreateProxy<T>(T obj) where T : class
+            => ProxyFactory.OverrideVirtual.FromReference<T>(new DynamicReference(new DynamicContract(), obj));
 
-        public static IProxyContract CreateContract(object obj)
-            => new DynamicContract(new DynamicHelper(), obj);
-
-        public static Func<T, IProxyContract> CreateContractFactory<T>()
+        public static Func<T, T> CreateProxyFactory<T>() where T : class
         {
-            DynamicHelper handler = new DynamicHelper();
-            return obj => new DynamicContract(handler, obj);
-        }
-
-        /// <summary>
-        /// Create a transparent proxy factory for the specified interface type, 
-        /// recommended if you plan on making multiple proxies of the same type, as they reuse the same handler.
-        /// 
-        /// The provided handler generates DynamicMethods to speed up the invocation of methods on the object, and reusing the handler
-        /// prevents the need to regenerate the code for each proxy
-        /// </summary>
-        /// <typeparam name="T">The interface type to create proxies for</typeparam>
-        /// <returns>A function that creates transparent proxies implementing the specified type</returns>
-        public static Func<T, T> CreateFactory<T>() where T : class
-        {
-            DynamicHelper handler = new DynamicHelper();
-            return obj => ProxyFactory.AbstractOnly.FromContract<T>(new DynamicContract(handler, obj));
+            DynamicContract contract = new DynamicContract();
+            return obj => ProxyFactory.OverrideVirtual.FromReference<T>(new DynamicReference(contract, obj));
         }
 
         private class DynamicContract : IProxyContract
         {
-            private readonly DynamicHelper handler;
-            private readonly object obj;
+            private readonly DynamicHelper handler = new DynamicHelper();
 
-            public DynamicContract(DynamicHelper handler, object obj)
+            public object Invoke(ref ProxyReference obj, MethodInfo method, object[] args)
             {
-                this.handler = handler;
-                this.obj = obj;
+                if (obj is DynamicReference verified_obj)
+                    return handler.GetMethod(method).Invoke(verified_obj.Target, args);
+
+                throw new InvalidOperationException($"{nameof(obj)} is not a valid reference for this contract!");
             }
 
-            public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
-                => handler.GetMethod(method).Invoke(obj, args);
-
-            public void Release()
+            public void Release(ProxyReference obj)
             {
+
             }
 
-            public bool Verify(Type t)
-                => t.IsInstanceOfType(obj);
+            public bool Verify(ProxyReference obj)
+                => obj is DynamicReference && ReferenceEquals(this, obj.Contract);
+        }
+
+        private class DynamicReference(IProxyContract contract, object target) : ProxyReference(contract)
+        {
+            internal readonly object Target = target;
         }
     }
 }

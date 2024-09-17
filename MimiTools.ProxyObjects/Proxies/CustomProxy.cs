@@ -16,6 +16,7 @@ namespace MimiTools.ProxyObjects.Proxies
             _helper = null;
             _factory = ProxyFactory.OverrideVirtual;
             _obj = null;
+            _ref = new ProxyReference(this);
         }
 
         public CustomProxy(object obj)
@@ -23,6 +24,7 @@ namespace MimiTools.ProxyObjects.Proxies
             _factory = ProxyFactory.OverrideVirtual;
             _obj = obj ?? throw new ArgumentNullException(nameof(obj));
             _helper = new DynamicHelper();
+            _ref = new ProxyReference(this);
         }
 
         public CustomProxy(ProxyFactory factory)
@@ -30,6 +32,7 @@ namespace MimiTools.ProxyObjects.Proxies
             _helper = null;
             _factory = factory ?? throw new ArgumentNullException(nameof(factory));
             _obj = null;
+            _ref = new ProxyReference(this);
         }
 
         public CustomProxy(object obj, ProxyFactory factory)
@@ -37,22 +40,24 @@ namespace MimiTools.ProxyObjects.Proxies
             _factory = factory ?? throw new ArgumentNullException(nameof(factory));
             _obj = obj ?? throw new ArgumentNullException(nameof(obj));
             _helper = new DynamicHelper();
+            _ref = new ProxyReference(this);
         }
 
         private readonly DynamicHelper _helper;
         private readonly ProxyFactory _factory;
         private readonly Dictionary<MethodInfo, CustomProxyDelegate> _implementations = new Dictionary<MethodInfo, CustomProxyDelegate>();
         private readonly object _obj;
+        private readonly ProxyReference _ref;
 
         public event Func<MethodInfo, CustomProxyDelegate> MethodResolve;
 
         public T AsProxy<T>() where T : class
-            => _factory.FromContract<T>(this);
+            => _factory.FromReference<T>(_ref);
 
         public object AsProxy(Type t)
-            => _factory.FromContract(t, this);
+            => _factory.FromReference(t, _ref);
 
-        public object Invoke(ref IProxyContract contract, MethodInfo method, object[] args)
+        public object Invoke(MethodInfo method, object[] args)
         {
             CustomProxyDelegate func;
             bool exec;
@@ -94,13 +99,12 @@ namespace MimiTools.ProxyObjects.Proxies
                 _implementations[method] = d;
         }
 
-        void IProxyContract.Release() { }
+        object IProxyContract.Invoke(ref ProxyReference obj, MethodInfo method, object[] args)
+            => Invoke(method, args);
 
-        public bool Verify(Type t)
-        {
-            if (_obj == null)
-                return true;
-            return t?.IsInstanceOfType(_obj) ?? false;
-        }
+        void IProxyContract.Release(ProxyReference obj) { }
+
+        bool IProxyContract.Verify(ProxyReference obj)
+            => ReferenceEquals(_ref, obj);
     }
 }
